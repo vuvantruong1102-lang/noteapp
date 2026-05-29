@@ -3,7 +3,6 @@ import { pinyin } from "pinyin-pro";
 import { supabase } from "../lib/supabase.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
-import Spinner from "../components/Spinner.jsx";
 import YouglishWidget from "../components/YouglishWidget.jsx";
 
 function speak(word) {
@@ -14,13 +13,10 @@ function speak(word) {
   } catch (e) {}
 }
 
-// Cache cũ bị coi là chưa đủ -> refetch.
-// explain yêu cầu version 2 (sửa lỗi bóc 字源演变 lấy nhầm mục lục).
+// explain version 3: tìm thêm 文字源流, 字源解说, ... khi không có 字源演变
 const NEEDS = {
   translate: (v) => v && v.pinyin && v.han_viet,
-  synonyms:  (v) => v && Array.isArray(v.synonyms),
-  examples:  (v) => v && Array.isArray(v.examples),
-  explain:   (v) => v && v.version >= 2 && v.intro_vi !== undefined,
+  explain:   (v) => v && v.version >= 3 && v.intro_vi !== undefined,
 };
 
 export default function Chinese() {
@@ -51,7 +47,6 @@ export default function Chinese() {
     todo.forEach((k) => fetchSection(term, k));
   }
 
-  // Refetch một section bất kỳ (kể cả khi đã cache).
   async function fetchSection(w, key) {
     const target = w || word;
     if (!target) return;
@@ -78,7 +73,7 @@ export default function Chinese() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Tra Tiếng Trung</h1>
-          <p className="page-sub">Pinyin · Hán Việt · nghĩa · đồng nghĩa · ví dụ · giải thích từ Baike</p>
+          <p className="page-sub">Pinyin · Hán Việt · nghĩa · giải thích & nguồn gốc tự dạng từ Baike</p>
         </div>
       </div>
 
@@ -95,8 +90,7 @@ export default function Chinese() {
           {!word && (
             <div className="empty">
               <div className="big">🀄</div>
-              Nhập một từ tiếng Trung rồi bấm <b>Tra cứu</b>.<br />
-              Tất cả phần (pinyin, Hán Việt, nghĩa, đồng nghĩa, ví dụ, giải thích) sẽ nạp tự động.
+              Nhập một từ tiếng Trung rồi bấm <b>Tra cứu</b>.
             </div>
           )}
 
@@ -117,16 +111,6 @@ export default function Chinese() {
               <Section title="Pinyin · Hán Việt · Nghĩa"
                 loading={loading.translate} onRefresh={() => fetchSection(word, "translate")}>
                 <TranslateBody d={data.translate} />
-              </Section>
-
-              <Section title="Từ đồng nghĩa"
-                loading={loading.synonyms} onRefresh={() => fetchSection(word, "synonyms")}>
-                <SynonymsBody d={data.synonyms} />
-              </Section>
-
-              <Section title="Ví dụ"
-                loading={loading.examples} onRefresh={() => fetchSection(word, "examples")}>
-                <ExamplesBody d={data.examples} />
               </Section>
 
               <Section title="Giải thích — Baidu Baike"
@@ -195,52 +179,11 @@ function TranslateBody({ d }) {
   );
 }
 
-function SynonymsBody({ d }) {
-  if (!d) return <div className="muted tiny">Đang chờ…</div>;
-  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
-  if (!d.synonyms?.length) return <div className="muted tiny">Không có từ đồng nghĩa.</div>;
-  return (
-    <div className="stack">
-      {d.synonyms.map((s, i) => (
-        <div key={i}>
-          <div className="row"><span className="zh" style={{ fontSize: 19 }}>{s.word}</span>
-            <span className="tiny" style={{ color: "var(--accent-700)" }}>{s.pinyin}</span></div>
-          <div>{s.meaning_vi}</div>
-          {s.note_vi && <div className="tiny muted">↳ {s.note_vi}</div>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ExamplesBody({ d }) {
-  if (!d) return <div className="muted tiny">Đang chờ…</div>;
-  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
-  if (!d.examples?.length) return <div className="muted tiny">Không có ví dụ.</div>;
-  return (
-    <div className="ex-grid">
-      {d.examples.map((ex, i) => (
-        <div className="card card-pad stack" key={i} style={{ background: "var(--surface-2)" }}>
-          <div className="zh" style={{ fontSize: 19 }}>{ex.zh}</div>
-          <div className="tiny" style={{ color: "var(--accent-700)" }}>{ex.pinyin}</div>
-          <div>{ex.translation_vi}</div>
-          {ex.breakdown?.length > 0 && (
-            <div className="tiny muted">
-              {ex.breakdown.map((b, j) => (
-                <span key={j}><span className="zh">{b.token}</span> ({b.pinyin}): {b.meaning_vi}{j < ex.breakdown.length - 1 ? " · " : ""}</span>
-              ))}
-            </div>
-          )}
-          {ex.grammar_vi && <div className="tiny" style={{ background: "var(--accent-tint)", padding: "7px 11px", borderRadius: 8 }}>📌 {ex.grammar_vi}</div>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function ExplainBody({ d }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
+  // Hiển thị tên section thực tế tìm được (字源演变 / 文字源流 / ...)
+  const heading = d.etymology_section || "字源演变";
   return (
     <div className="stack">
       {d.source === "baidu_baike" ? (
@@ -250,12 +193,12 @@ function ExplainBody({ d }) {
       )}
       {d.intro_vi && <div>{d.intro_vi}</div>}
       <div className="divider" />
-      <p className="field-label" style={{ margin: 0 }}>字源演变 — Nguồn gốc tự dạng</p>
+      <p className="field-label" style={{ margin: 0 }}>{heading} — Nguồn gốc tự dạng</p>
       {d.etymology_found && d.etymology_vi ? (
         <div style={{ whiteSpace: "pre-wrap" }}>{d.etymology_vi}</div>
       ) : (
         <div className="muted tiny">
-          Không có mục 字源演变 trên Baike cho từ này
+          Không tìm thấy mục nguồn gốc tự dạng (字源演变 / 文字源流 / 字源解说) trên Baike cho từ này
           {d.source !== "baidu_baike" && " (hoặc không truy cập được Baike)"}.
           Bấm nút <b>↻</b> ở góc phải để thử lại.
         </div>

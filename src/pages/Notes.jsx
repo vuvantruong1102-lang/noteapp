@@ -7,6 +7,19 @@ const CAT_LABEL = {
   cong_viec: "Công việc", ca_nhan: "Cá nhân",
   hoc_tap: "Học tập", tieng_trung: "Tiếng Trung",
 };
+const VIEW_KEY = "vtnotes-notes-view";
+
+const IconGrid = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+  </svg>
+);
+const IconList = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>
+  </svg>
+);
 
 export default function Notes() {
   const nav = useNavigate();
@@ -17,6 +30,14 @@ export default function Notes() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tagInfo, setTagInfo] = useState(null);
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem(VIEW_KEY) || "grid"; } catch { return "grid"; }
+  });
+
+  function changeView(v) {
+    setView(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch {}
+  }
 
   async function load() {
     setLoading(true);
@@ -57,7 +78,17 @@ export default function Notes() {
           <h1 className="page-title">{title}</h1>
           <p className="page-sub">{today} · {shown.length} ghi chú</p>
         </div>
-        <button className="btn" onClick={() => nav("/note/new")}>+ Ghi chú mới</button>
+        <div className="row" style={{ gap: 10 }}>
+          <div className="view-toggle" title="Đổi cách hiển thị">
+            <button className={view === "grid" ? "active" : ""} onClick={() => changeView("grid")} title="Dạng lưới">
+              <IconGrid />
+            </button>
+            <button className={view === "list" ? "active" : ""} onClick={() => changeView("list")} title="Dạng danh sách">
+              <IconList />
+            </button>
+          </div>
+          <button className="btn" onClick={() => nav("/note/new")}>+ Ghi chú mới</button>
+        </div>
       </div>
 
       {loading ? (
@@ -70,8 +101,10 @@ export default function Notes() {
             <button className="btn sm" onClick={() => nav("/note/new")}>Viết ghi chú đầu tiên</button>
           </div>
         </div>
+      ) : view === "grid" ? (
+        <div className="notes-grid">{shown.map((n) => <NoteCard key={n.id} note={n} mode="grid" />)}</div>
       ) : (
-        <div className="notes-grid">{shown.map((n) => <NoteCard key={n.id} note={n} />)}</div>
+        <div className="notes-list">{shown.map((n) => <NoteCard key={n.id} note={n} mode="list" />)}</div>
       )}
     </div>
   );
