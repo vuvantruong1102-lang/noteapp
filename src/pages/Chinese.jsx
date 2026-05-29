@@ -107,7 +107,7 @@ export default function Chinese() {
 
               <Section title="Pinyin · Hán Việt · Nghĩa"
                 loading={loading.translate} onRefresh={() => fetchSection(word, "translate")}>
-                <TranslateBody d={data.translate} />
+                <TranslateBody d={data.translate} word={word} />
               </Section>
 
               <Accordion title="Giải thích — Baidu Baike"
@@ -218,11 +218,16 @@ const refreshStyle = {
   border: "none", background: "transparent",
 };
 
-function TranslateBody({ d }) {
+function TranslateBody({ d, word }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   return (
     <div className="stack">
+      {d.traditional && (
+        <div><b>Phồn thể:</b> <span className="zh" style={{ fontSize: 18 }}>{d.traditional}</span>
+          {d.traditional === word && <span className="tiny muted"> (giản thể và phồn thể giống nhau)</span>}
+        </div>
+      )}
       <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{d.pinyin}</span></div>
       <div><b>Hán Việt:</b> {d.han_viet || "—"}</div>
       <div><b>Nghĩa:</b> {d.meaning_vi}</div>
