@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { exportBackup } from "../lib/backup.js";
+import { getInitialTheme, applyTheme } from "../lib/theme.js";
 
 // ===== Icons (inline SVG, nét mảnh) =====
 const stroke = { stroke: "currentColor", fill: "none", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" };
@@ -14,6 +15,12 @@ const IconType = () => (
 );
 const IconGlobe = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
+);
+const IconMoon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+);
+const IconSun = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
 );
 const IconDownload = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -48,6 +55,8 @@ export default function Sidebar() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [backingUp, setBackingUp] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme);
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
   async function loadTags() {
     const { data } = await supabase.from("zhnote_tags").select("id,name,color").order("name");
@@ -133,6 +142,10 @@ export default function Sidebar() {
       </div>
 
       <div className="nav-bottom">
+        <button className="nav-item" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+          <span className="nav-ico">{theme === "dark" ? <IconSun /> : <IconMoon />}</span>
+          <span className="nav-label">{theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}</span>
+        </button>
         <button className="nav-item" onClick={doBackup} disabled={backingUp}>
           <span className="nav-ico"><IconDownload /></span>
           <span className="nav-label">{backingUp ? "Đang tải…" : "Sao lưu dữ liệu"}</span>
