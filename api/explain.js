@@ -1,12 +1,12 @@
 // POST { word } -> { word, source, intro_vi, etymology_vi, etymology_found,
 //                    etymology_section, version }
-// Tìm mục nguồn gốc tự dạng trong Baike. Thử theo thứ tự:
-//   字源演变 -> 字源解说 -> 文字源流 -> 字形演变 -> 词源演变 -> 词源
-// Lấy đoạn DÀI NHẤT trong tất cả các vị trí (TOC sẽ ngắn, nội dung thật dài).
+// v4: xử lý trang ĐA NGHĨA (disambiguation) của Baike. Chữ như 制 có nhiều
+// nghĩa nên Baike trả trang "请在下列义项中选择" thay vì trang chữ Hán.
+// -> phát hiện, lần theo link tới mục 汉语汉字 rồi fetch lại.
 import * as cheerio from "cheerio";
 import { chatJSON, isChinese } from "./_lib/openai.js";
 
-const SCHEMA_VERSION = 3; // bump để cache cũ tự refetch khi mở lại
+const SCHEMA_VERSION = 4;
 
 const ETYMOLOGY_HEADINGS = [
   "字源演变", "字源解说", "文字源流", "字形演变", "词源演变", "词源",
@@ -35,7 +35,6 @@ function extractIntro(html) {
   return null;
 }
 
-// Thử mọi tiêu đề + mọi vị trí; lấy slice dài nhất.
 function extractEtymology(text) {
   const all = [];
   for (const heading of ETYMOLOGY_HEADINGS) {
@@ -49,7 +48,6 @@ function extractEtymology(text) {
         const mi = text.indexOf(m, start);
         if (mi !== -1 && mi < end) end = mi;
       }
-      // Còn các tiêu đề etymology khác cũng làm điểm dừng (nếu trang có nhiều)
       for (const h2 of ETYMOLOGY_HEADINGS) {
         if (h2 === heading) continue;
         const hi = text.indexOf(h2, start);
@@ -67,13 +65,33 @@ function extractEtymology(text) {
   return all[0].slice.length > 50 ? { heading: all[0].heading, text: all[0].slice } : null;
 }
 
-async function fetchBaike(word) {
-  const url = `https://baike.baidu.com/item/${encodeURIComponent(word)}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 9000);
+// Trang đa nghĩa: chứa các marker đặc trưng
+function isDisambiguation(text) {
+  return /是一个多义词|请在下列义项中选择|共\d+个义项|该词条/.test(text);
+}
+
+// Tìm link tới nghĩa chữ Hán trong trang đa nghĩa
+function findCharacterSenseLink(html) {
+  const $ = cheerio.load(html);
+  const candidates = [];
+  $("a").each((_, el) => {
+    const href = ($(el).attr("href") || "").split("?")[0];
+    const txt = $(el).text().trim();
+    if (/^\/item\/[^/]+\/\d+/.test(href)) candidates.push({ href, txt });
+  });
+  // Ưu tiên nghĩa "汉语汉字" / "汉字" / "文字", rồi mới đến chứa "字"
+  const pick = candidates.find((c) => /汉语汉字|汉字|文字/.test(c.txt))
+            || candidates.find((c) => /字/.test(c.txt))
+            || candidates[0];
+  return pick ? pick.href : null;
+}
+
+async function fetchUrl(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 7000);
   try {
     const r = await fetch(url, {
-      signal: controller.signal, redirect: "follow",
+      signal: ctrl.signal, redirect: "follow",
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
         "Accept-Language": "zh-CN,zh;q=0.9",
@@ -92,13 +110,29 @@ async function fetchBaike(word) {
   }
 }
 
+// Fetch + tự giải quyết trang đa nghĩa
+async function fetchBaikeResolved(word) {
+  const first = await fetchUrl(`https://baike.baidu.com/item/${encodeURIComponent(word)}`);
+  if (!first.ok) return first;
+  const text = htmlToText(first.html);
+  // Nếu không thấy etymology VÀ là trang đa nghĩa -> lần theo link nghĩa chữ Hán
+  if (!extractEtymology(text) && isDisambiguation(text)) {
+    const link = findCharacterSenseLink(first.html);
+    if (link) {
+      const second = await fetchUrl(`https://baike.baidu.com${link}`);
+      if (second.ok) return second;
+    }
+  }
+  return first;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
   const word = (req.body?.word || "").trim();
   if (!isChinese(word)) return res.status(400).json({ error: "invalid_word" });
 
   try {
-    const baike = await fetchBaike(word);
+    const baike = await fetchBaikeResolved(word);
 
     let introZh = null, etyResult = null;
     if (baike.ok) {
@@ -116,10 +150,9 @@ export default async function handler(req, res) {
           `[VĂN BẢN ĐẦU TRANG — có thể chứa mục lục và bảng thông tin cơ bản]\n${introZh}\n\n` +
           `[MỤC ${etyResult.heading} — nguồn gốc/diễn biến tự dạng]\n${etyResult.text}\n\n` +
           `Yêu cầu:\n` +
-          `1. Từ phần đầu trang, BỎ QUA mục lục (TOC) và bảng thông tin cơ bản ` +
-          `(中文名/拼音/部首/笔画 v.v.), chỉ trích lấy phần mô tả/định nghĩa chính của từ, ` +
-          `dịch ĐẦY ĐỦ sang tiếng Việt.\n` +
-          `2. Dịch ĐẦY ĐỦ mục ${etyResult.heading}, giữ trọn nội dung, không rút gọn, không bịa thêm.\n` +
+          `1. Từ phần đầu trang, BỎ QUA mục lục (TOC) và bảng thông tin cơ bản, ` +
+          `chỉ trích phần mô tả/định nghĩa chính của từ, dịch ĐẦY ĐỦ sang tiếng Việt.\n` +
+          `2. Dịch ĐẦY ĐỦ mục ${etyResult.heading}, giữ trọn nội dung, không rút gọn, không bịa.\n` +
           `JSON: {"intro_vi":"...","etymology_vi":"..."}`,
       });
       return res.status(200).json({
@@ -146,7 +179,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Baike fail
     const payload = await chatJSON({
       temperature: 0.3,
       system: "Bạn giải thích chữ Hán cho người Việt học. Chỉ trả JSON.",
