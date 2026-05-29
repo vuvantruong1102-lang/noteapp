@@ -24,6 +24,8 @@ export default function Chinese() {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState({});
   const [history, setHistory] = useState([]);
+  const [hanVietFn, setHanVietFn] = useState(null);
+  useEffect(() => { import("../lib/hanviet.js").then((m) => setHanVietFn(() => m.hanVietOf)); }, []);
 
   async function loadHistory() {
     const { data: rows } = await supabase.from("zhnote_searches")
@@ -137,6 +139,7 @@ export default function Chinese() {
               <Section title="Phồn thể · Pinyin · Hán Việt · Nghĩa"
                 loading={loading.lookup} onRefresh={() => fetchSection(word, "lookup")}>
                 <LookupBody d={data.lookup} word={word}
+                  hanVietLocal={hanVietFn ? hanVietFn(word) : null}
                   onTranslateVi={translateVi} viLoading={loading.vi} />
               </Section>
 
@@ -239,7 +242,7 @@ const refreshStyle = {
   border: "none", background: "transparent",
 };
 
-function LookupBody({ d, word, onTranslateVi, viLoading }) {
+function LookupBody({ d, word, hanVietLocal, onTranslateVi, viLoading }) {
   if (!d) return <div className="muted tiny">Đang tra…</div>;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   return (
@@ -250,7 +253,7 @@ function LookupBody({ d, word, onTranslateVi, viLoading }) {
         </div>
       )}
       <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{pinyin(word, { toneType: "symbol" })}</span></div>
-      <div><b>Hán Việt:</b> {d.han_viet || "—"}</div>
+      <div><b>Hán Việt:</b> {hanVietLocal || d.han_viet || "—"}</div>
 
       {d.definition_en && (
         <div>
