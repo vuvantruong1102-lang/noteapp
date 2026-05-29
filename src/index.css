@@ -270,3 +270,64 @@ a { color: var(--accent-700); text-decoration: none; }
   .page, .editor-page { padding: 22px 18px 48px; }
   .zh-layout { grid-template-columns: 1fr; } .zh-aside { position: static; }
 }
+
+/* ====================== NOTES — LIST VIEW & VIEW TOGGLE (v1.5) ====================== */
+.view-toggle {
+  display: inline-flex; gap: 2px;
+  border: 1px solid var(--border-strong); border-radius: 8px; padding: 3px;
+  background: var(--surface);
+}
+.view-toggle button {
+  width: 32px; height: 28px; border-radius: 5px;
+  color: var(--text-mute);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s;
+}
+.view-toggle button.active { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.view-toggle button:hover:not(.active) { background: var(--hover); color: var(--text); }
+
+.notes-list { display: flex; flex-direction: column; gap: 6px; }
+.notes-list .list-item {
+  padding: 12px 18px; display: flex; align-items: flex-start; gap: 13px;
+  cursor: pointer; transition: background .12s;
+}
+.notes-list .list-item:hover { background: var(--hover); }
+.notes-list .cat-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  margin-top: 7px;
+}
+.notes-list .list-main { flex: 1; min-width: 0; }
+.notes-list .list-row1 {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: nowrap;
+}
+.notes-list .list-title {
+  font-weight: 500; flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.notes-list .list-cat {
+  font-size: 11.5px; color: var(--text-mute); flex-shrink: 0;
+}
+.notes-list .list-date {
+  font-size: 12px; color: var(--text-mute); flex-shrink: 0; white-space: nowrap;
+}
+.notes-list .list-preview {
+  font-size: 13px; color: var(--text-soft); margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ====================== RICH EDITOR — FONT SIZE INPUT (v1.5) ====================== */
+.font-size-box {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 32px; padding: 0 8px;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--surface);
+}
+.font-size-input {
+  width: 36px; height: 28px; padding: 0; text-align: center;
+  border: none; background: transparent; font-size: 13px;
+  outline: none; color: var(--text); -moz-appearance: textfield;
+}
+.font-size-input::-webkit-inner-spin-button,
+.font-size-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.font-size-input::placeholder { color: var(--text-mute); font-size: 12px; }
+.font-size-unit { font-size: 11px; color: var(--text-mute); pointer-events: none; }
