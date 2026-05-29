@@ -11,10 +11,10 @@ async function post(path, body) {
 }
 
 export const api = {
-  translate: (word) => post("/api/translate", { word }),
-  explain:   (word) => post("/api/explain",   { word }),
-  zdic:      (word) => post("/api/zdic",      { word }),
-  examples:  (word) => post("/api/examples",  { word }),
-  synonyms:  (word) => post("/api/synonyms",  { word }),
-  sentence:  (text) => post("/api/sentence",  { text }),
+  lookup:      (word) => post("/api/lookup", { word }),                          // tức thì, không AI
+  translatevi: (word, definition_en, han_viet) =>
+                 post("/api/translatevi", { word, definition_en, han_viet }),    // AI dịch Việt
+  explain:     (word) => post("/api/explain", { word }),
+  zdic:        (word) => post("/api/zdic",    { word }),
+  sentence:    (text) => post("/api/sentence", { text }),
 };
