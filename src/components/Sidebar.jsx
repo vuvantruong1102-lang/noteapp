@@ -43,7 +43,7 @@ const TOOLS = [
   { to: "/translate-en", label: "Dịch tiếng Anh",   Icon: IconGlobe },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onHide }) {
   const { user, signOut } = useAuth();
   const loc = useLocation();
   const [params] = useSearchParams();
@@ -90,6 +90,9 @@ export default function Sidebar() {
         <div className="brand">
           <span className="brand-mark">V</span>
           <span className="brand-name">VTNotes</span>
+          {onHide && (
+            <button className="nav-collapse" onClick={onHide} title="Ẩn menu" aria-label="Ẩn menu">«</button>
+          )}
         </div>
 
         <div className="nav-section">
