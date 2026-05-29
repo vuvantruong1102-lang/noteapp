@@ -26,15 +26,14 @@ export default function Chinese() {
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [word, setWord] = useState("");
-  const [data, setData] = useState({});      // { translate, explain, examples, synonyms }
-  const [active, setActive] = useState(null); // nút đang mở
+  const [data, setData] = useState({});
+  const [active, setActive] = useState(null);
   const [loading, setLoading] = useState(null);
   const [history, setHistory] = useState([]);
 
   async function loadHistory() {
-    const { data: rows } = await supabase
-      .from("zhnote_searches").select("word,pinyin,updated_at")
-      .order("updated_at", { ascending: false }).limit(30);
+    const { data: rows } = await supabase.from("zhnote_searches")
+      .select("word,pinyin,updated_at").order("updated_at", { ascending: false }).limit(40);
     setHistory(rows || []);
   }
   useEffect(() => { loadHistory(); }, []);
@@ -42,101 +41,112 @@ export default function Chinese() {
   async function lookup(w) {
     const term = (w || input).trim();
     if (!term) return;
-    setWord(term); setInput(term); setActive(null);
-    // nạp cache nếu đã từng tra
-    const { data: row } = await supabase
-      .from("zhnote_searches").select("data").eq("word", term).maybeSingle();
-    setData(row?.data || {});
+    setWord(term); setInput(term); setActive("translate"); setLoading(null);
+    const { data: row } = await supabase.from("zhnote_searches").select("data").eq("word", term).maybeSingle();
+    const cached = row?.data || {};
+    setData(cached);
+    if (!cached.translate) run("translate", term, cached); // tự dịch ngay khi tra
   }
 
-  async function run(action) {
+  async function run(action, forceWord, baseData) {
+    const w = forceWord || word;
     if (action === "video") { setActive("video"); return; }
     setActive(action);
-    if (data[action]) return;            // đã có cache trong phiên/DB
+    const cur = baseData || data;
+    if (cur[action]) return;
     setLoading(action);
     try {
-      const res = await api[action](word);
-      const next = { ...data, [action]: res };
+      const res = await api[action](w);
+      const next = { ...cur, [action]: res };
       setData(next);
       await supabase.from("zhnote_searches").upsert(
-        { user_id: user.id, word, pinyin: pinyin(word, { toneType: "symbol" }), data: next },
-        { onConflict: "user_id,word" }
-      );
+        { user_id: user.id, word: w, pinyin: pinyin(w, { toneType: "symbol" }), data: next },
+        { onConflict: "user_id,word" });
       loadHistory();
     } catch (e) {
-      setData({ ...data, [action]: { __error: "Không lấy được dữ liệu, thử lại sau." } });
-    } finally {
-      setLoading(null);
-    }
+      setData((d) => ({ ...d, [action]: { __error: "Không lấy được dữ liệu, thử lại sau." } }));
+    } finally { setLoading(null); }
   }
 
   return (
     <>
-      <header className="app-header"><h1 className="screen-title">Tiếng Trung</h1></header>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Tiếng Trung</h1>
+          <p className="page-sub">Tra từ, giải thích, ví dụ và video phát âm</p>
+        </div>
+      </div>
 
-      <div className="screen stack">
-        {/* Ô tra từ */}
-        <div className="row">
-          <input className="input zh" value={input} placeholder="Gõ từ cần tra…"
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && lookup()} />
-          <button className="btn" onClick={() => lookup()}>Tra</button>
+      <div className="zh-layout">
+        {/* CỘT CHÍNH */}
+        <div className="stack">
+          <div className="row">
+            <input className="input zh" value={input} placeholder="Gõ từ / chữ Hán cần tra…"
+              style={{ fontSize: 17 }}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && lookup()} />
+            <button className="btn" onClick={() => lookup()}>Tra cứu</button>
+          </div>
+
+          {!word && (
+            <div className="empty">
+              <div className="big">🀄</div>
+              Nhập một từ tiếng Trung rồi bấm <b>Tra cứu</b>.<br />
+              Sau đó dùng các nút Dịch · Giải thích · Ví dụ · Video · Đồng nghĩa.
+            </div>
+          )}
+
+          {word && (
+            <>
+              <div className="card card-pad fade-in">
+                <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+                  <div className="row" style={{ alignItems: "baseline", gap: 14 }}>
+                    <span className="zh" style={{ fontSize: 40, fontWeight: 500 }}>{word}</span>
+                    <span style={{ color: "var(--green-600)", fontWeight: 600, fontSize: 18 }}>
+                      {pinyin(word, { toneType: "symbol" })}
+                    </span>
+                  </div>
+                  <button className="btn ghost sm" onClick={() => speak(word)}>🔊 Phát âm</button>
+                </div>
+              </div>
+
+              <div className="actions">
+                {ACTIONS.map((a) => (
+                  <button key={a.key} className={"action" + (active === a.key ? " on" : "")}
+                    onClick={() => run(a.key)}><span>{a.ico}</span>{a.label}</button>
+                ))}
+              </div>
+
+              <div className="fade-in">
+                {loading ? (
+                  <div className="card card-pad"><Spinner label="Đang hỏi AI…" /></div>
+                ) : active === "video" ? (
+                  <div className="card card-pad"><YouglishWidget word={word} /></div>
+                ) : active ? (
+                  <ResultPanel action={active} payload={data[active]} />
+                ) : null}
+              </div>
+            </>
+          )}
         </div>
 
-        {word && (
-          <>
-            {/* Thẻ từ */}
-            <div className="card card-pad fade-in">
-              <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-                <div className="row" style={{ alignItems: "baseline", gap: 12 }}>
-                  <span className="zh" style={{ fontSize: 34, fontWeight: 500 }}>{word}</span>
-                  <span style={{ color: "var(--green-600)", fontWeight: 600 }}>
-                    {pinyin(word, { toneType: "symbol" })}
-                  </span>
-                </div>
-                <button onClick={() => speak(word)} title="Phát âm" style={{ fontSize: 22 }}>🔊</button>
-              </div>
-            </div>
-
-            {/* Nút hành động */}
-            <div className="actions">
-              {ACTIONS.map((a) => (
-                <button key={a.key} className={"action" + (active === a.key ? " on" : "")}
-                  onClick={() => run(a.key)}>
-                  <span>{a.ico}</span>{a.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Kết quả */}
-            <div className="fade-in">
-              {loading && <div className="card card-pad"><Spinner label="Đang hỏi AI…" /></div>}
-              {!loading && active && active !== "video" && (
-                <ResultPanel action={active} payload={data[active]} />
-              )}
-              {!loading && active === "video" && (
-                <div className="card card-pad"><YouglishWidget word={word} /></div>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Lịch sử */}
-        {history.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <p className="field-label">🕘 Lịch sử tra cứu</p>
+        {/* CỘT LỊCH SỬ */}
+        <aside className="zh-aside">
+          <p className="field-label">🕘 Lịch sử tra cứu</p>
+          {history.length === 0 ? (
+            <div className="card card-pad tiny muted">Chưa có từ nào.</div>
+          ) : (
             <div className="card">
               {history.map((h, i) => (
-                <div key={h.word} onClick={() => lookup(h.word)}
-                  className="row" style={{ padding: "11px 14px", cursor: "pointer",
-                    borderTop: i ? "1px solid var(--border)" : "none" }}>
+                <div key={h.word} onClick={() => lookup(h.word)} className="row"
+                  style={{ padding: "11px 14px", cursor: "pointer", borderTop: i ? "1px solid var(--border)" : "none" }}>
                   <span className="zh" style={{ fontSize: 18 }}>{h.word}</span>
                   <span className="tiny" style={{ color: "var(--green-600)" }}>{h.pinyin}</span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </aside>
       </div>
     </>
   );
@@ -151,7 +161,7 @@ function ResultPanel({ action, payload }) {
       <div className="card card-pad stack">
         <div><b>Pinyin:</b> <span style={{ color: "var(--green-600)" }}>{payload.pinyin}</span></div>
         <div><b>Nghĩa:</b> {payload.meaning_vi}</div>
-        <div className="muted" style={{ fontSize: 14 }}>{payload.explanation_vi}</div>
+        <div className="muted">{payload.explanation_vi}</div>
       </div>
     );
 
@@ -164,7 +174,7 @@ function ResultPanel({ action, payload }) {
         <div>{payload.intro_vi}</div>
         <div className="divider" />
         <p className="field-label" style={{ margin: 0 }}>字源演变 — Nguồn gốc tự dạng {payload.etymology_found ? "" : "(AI tổng hợp)"}</p>
-        <div className="muted" style={{ fontSize: 14 }}>{payload.etymology_vi}</div>
+        <div className="muted">{payload.etymology_vi}</div>
         {payload.source_url && <a className="tiny" href={payload.source_url} target="_blank" rel="noreferrer">Xem trên Baike →</a>}
       </div>
     );
@@ -174,9 +184,9 @@ function ResultPanel({ action, payload }) {
       <div className="card card-pad stack">
         {(payload.synonyms || []).map((s, i) => (
           <div key={i}>
-            <div className="row"><span className="zh" style={{ fontSize: 18 }}>{s.word}</span>
+            <div className="row"><span className="zh" style={{ fontSize: 19 }}>{s.word}</span>
               <span className="tiny" style={{ color: "var(--green-600)" }}>{s.pinyin}</span></div>
-            <div style={{ fontSize: 14 }}>{s.meaning_vi}</div>
+            <div>{s.meaning_vi}</div>
             {s.note_vi && <div className="tiny muted">↳ {s.note_vi}</div>}
           </div>
         ))}
@@ -185,12 +195,12 @@ function ResultPanel({ action, payload }) {
 
   if (action === "examples")
     return (
-      <div className="stack">
+      <div className="ex-grid">
         {(payload.examples || []).map((ex, i) => (
           <div className="card card-pad stack" key={i}>
-            <div className="zh" style={{ fontSize: 18 }}>{ex.zh}</div>
+            <div className="zh" style={{ fontSize: 19 }}>{ex.zh}</div>
             <div className="tiny" style={{ color: "var(--green-600)" }}>{ex.pinyin}</div>
-            <div style={{ fontSize: 14 }}>{ex.translation_vi}</div>
+            <div>{ex.translation_vi}</div>
             {ex.breakdown?.length > 0 && (
               <div className="tiny muted">
                 {ex.breakdown.map((b, j) => (
@@ -198,11 +208,10 @@ function ResultPanel({ action, payload }) {
                 ))}
               </div>
             )}
-            {ex.grammar_vi && <div className="tiny" style={{ background: "var(--green-50)", padding: "6px 10px", borderRadius: 8 }}>📌 {ex.grammar_vi}</div>}
+            {ex.grammar_vi && <div className="tiny" style={{ background: "var(--green-50)", padding: "7px 11px", borderRadius: 8 }}>📌 {ex.grammar_vi}</div>}
           </div>
         ))}
       </div>
     );
-
   return null;
 }

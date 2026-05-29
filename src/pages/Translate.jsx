@@ -23,38 +23,39 @@ export default function Translate() {
   async function saveNote() {
     if (!res || res.__error) return;
     const body =
-      `${text.trim()}\n\n【Dịch】 ${res.translation_vi}\n\n【Ngữ pháp】 ${res.explanation_vi}\n\n` +
-      `【Từ mới】\n` + (res.new_words || []).map((w) => `• ${w.word} (${w.pinyin}): ${w.meaning_vi}`).join("\n");
+      `${text.trim()}\n\n【Dịch】 ${res.translation_vi}\n\n【Ngữ pháp】 ${res.explanation_vi}\n\n【Từ mới】\n` +
+      (res.new_words || []).map((w) => `• ${w.word} (${w.pinyin}): ${w.meaning_vi}`).join("\n");
     await supabase.from("zhnote_notes").insert({
-      user_id: user.id, category: "tieng_trung",
-      title: text.trim().slice(0, 30), content: body,
-    });
+      user_id: user.id, category: "tieng_trung", title: text.trim().slice(0, 30), content: body });
     setSaved(true);
   }
 
   return (
     <>
-      <header className="app-header"><h1 className="screen-title">Dịch câu</h1></header>
-
-      <div className="screen stack">
+      <div className="page-head">
         <div>
-          <p className="field-label">Dán câu / đoạn tiếng Trung</p>
-          <textarea className="textarea zh" value={text}
-            placeholder="我从越南来，正在学习中文。"
-            onChange={(e) => setText(e.target.value)} />
+          <h1 className="page-title">Dịch câu</h1>
+          <p className="page-sub">Dán câu tiếng Trung để tách từ, sinh pinyin và giải thích</p>
         </div>
-        <button className="btn block" onClick={analyze} disabled={loading || !text.trim()}>
-          {loading ? "Đang phân tích…" : "Phân tích & tạo pinyin"}
-        </button>
+      </div>
+
+      <div style={{ maxWidth: 820, margin: "0 auto" }} className="stack">
+        <div className="card card-pad stack">
+          <textarea className="textarea zh" value={text} style={{ fontSize: 17, minHeight: 130 }}
+            placeholder="我从越南来，正在学习中文。" onChange={(e) => setText(e.target.value)} />
+          <button className="btn" onClick={analyze} disabled={loading || !text.trim()}
+            style={{ alignSelf: "flex-start" }}>
+            {loading ? "Đang phân tích…" : "Phân tích & tạo pinyin"}
+          </button>
+        </div>
 
         {loading && <div className="card card-pad"><Spinner label="Đang tách từ & dịch…" /></div>}
 
         {res && !res.__error && (
           <div className="stack fade-in">
-            {/* Câu kèm pinyin theo từng từ */}
             <div className="card card-pad">
               <p className="field-label">Câu kèm pinyin</p>
-              <div style={{ lineHeight: 2 }}>
+              <div style={{ lineHeight: 2.2 }}>
                 {(res.tokens || []).map((t, i) => {
                   const isHan = /[\u4e00-\u9fff]/.test(t.token);
                   return (
@@ -67,29 +68,25 @@ export default function Translate() {
               </div>
             </div>
 
-            {/* Dịch nghĩa */}
             <div className="card card-pad stack">
               <div><b>Dịch:</b> {res.translation_vi}</div>
-              {res.explanation_vi && <div className="muted" style={{ fontSize: 14 }}>📐 {res.explanation_vi}</div>}
+              {res.explanation_vi && <div className="muted">📐 {res.explanation_vi}</div>}
             </div>
 
-            {/* Từ mới */}
             {res.new_words?.length > 0 && (
               <div className="card card-pad stack">
                 <p className="field-label" style={{ margin: 0 }}>Từ mới</p>
                 {res.new_words.map((w, i) => (
-                  <div className="row" key={i} style={{ justifyContent: "space-between" }}>
-                    <div>
-                      <span className="zh" style={{ fontSize: 17 }}>{w.word}</span>{" "}
-                      <span className="tiny" style={{ color: "var(--green-600)" }}>{w.pinyin}</span>
-                      <div style={{ fontSize: 14 }}>{w.meaning_vi}</div>
-                    </div>
+                  <div key={i}>
+                    <span className="zh" style={{ fontSize: 18 }}>{w.word}</span>{" "}
+                    <span className="tiny" style={{ color: "var(--green-600)" }}>{w.pinyin}</span>
+                    <div>{w.meaning_vi}</div>
                   </div>
                 ))}
               </div>
             )}
 
-            <button className="btn ghost block" onClick={saveNote} disabled={saved}>
+            <button className="btn ghost" onClick={saveNote} disabled={saved} style={{ alignSelf: "flex-start" }}>
               {saved ? "✓ Đã lưu vào Ghi chú" : "💾 Lưu vào ghi chú (Tiếng Trung)"}
             </button>
           </div>
