@@ -1,0 +1,35 @@
+CẬP NHẬT v1.1 — VTNotes
+=======================
+
+>>> 1 FILE CẦN XOÁ KHỎI REPO (overwrite không tự xoá được):
+    src/components/TagsSidebar.jsx
+    -> Sidebar phụ ở giữa đã bị gỡ. Các thẻ/nhóm gộp vào sidebar bên trái.
+
+>>> CÁC FILE GHI ĐÈ (cùng đường dẫn với repo):
+
+  index.html                            (đổi title sang VTNotes)
+  package.json                          (đổi name sang vtnotes)
+  api/translate.js                      (THÊM trường han_viet — âm Hán-Việt)
+  api/explain.js                        (字源演变 chỉ dịch từ Baike, full text,
+                                         không nhờ AI bịa khi không có dữ liệu)
+  src/index.css                         (gỡ style sidebar giữa, thêm sidebar mới)
+  src/components/Sidebar.jsx            (sidebar trái gộp: Nhóm + Thẻ + Công cụ
+                                         + Sao lưu + Đăng xuất)
+  src/lib/backup.js                     (FILE MỚI — xuất JSON tải về)
+  src/pages/Login.jsx                   (đổi tên hiển thị VTNotes)
+  src/pages/Notes.jsx                   (lọc theo URL ?cat=… hoặc ?tag=…,
+                                         bỏ sidebar phụ)
+  src/pages/Chinese.jsx                 (bỏ 5 nút riêng; Tra cứu nạp song song
+                                         pinyin·hán việt·nghĩa·đồng nghĩa·ví dụ
+                                         ·giải thích Baike; Video tách riêng)
+
+GHI CHÚ
+-------
+• KHÔNG cần chạy thêm migration SQL — schema không đổi.
+• Cache cũ trong zhnote_searches sẽ tự được làm mới khi mở từ cũ
+  (vì entry translate chưa có trường han_viet -> auto refetch).
+• Backup ra file JSON: bấm "💾 Sao lưu dữ liệu" ở đáy sidebar.
+  File tên dạng: vtnotes-backup-YYYY-MM-DD.json
+  Nội dung: tags, notes (kèm tag_ids và HTML), searches (kèm cache).
+  Khôi phục: có thể import lại bằng SQL hoặc script (mình có thể viết
+  thêm helper restore nếu bạn cần).
