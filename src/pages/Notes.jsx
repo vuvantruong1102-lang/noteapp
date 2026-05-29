@@ -2,62 +2,74 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
 import NoteCard from "../components/NoteCard.jsx";
+import TagsSidebar from "../components/TagsSidebar.jsx";
 
-const FILTERS = [
-  { key: "all", label: "Tất cả" },
-  { key: "cong_viec", label: "Công việc" },
-  { key: "ca_nhan", label: "Cá nhân" },
-  { key: "hoc_tap", label: "Học tập" },
-  { key: "tieng_trung", label: "Tiếng Trung" },
-];
+const CAT_LABEL = {
+  cong_viec: "Công việc", ca_nhan: "Cá nhân",
+  hoc_tap: "Học tập", tieng_trung: "Tiếng Trung",
+};
 
 export default function Notes() {
   const nav = useNavigate();
   const [notes, setNotes] = useState([]);
-  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState({ type: "all" });
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from("zhnote_notes").select("*")
-      .order("pinned", { ascending: false }).order("updated_at", { ascending: false });
-    setNotes(data || []); setLoading(false);
+    const { data } = await supabase
+      .from("zhnote_notes")
+      .select("*, zhnote_note_tags(zhnote_tags(id, name, color))")
+      .order("pinned", { ascending: false })
+      .order("updated_at", { ascending: false });
+    setNotes(data || []);
+    setLoading(false);
   }
   useEffect(() => { load(); }, []);
 
-  const shown = filter === "all" ? notes : notes.filter((n) => n.category === filter);
-  const today = new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  const shown = notes.filter((n) => {
+    if (!selected || selected.type === "all") return true;
+    if (selected.type === "category") return n.category === selected.value;
+    if (selected.type === "tag") {
+      return (n.zhnote_note_tags || []).some((nt) => nt.zhnote_tags?.id === selected.value);
+    }
+    return true;
+  });
+
+  const today = new Date().toLocaleDateString("vi-VN",
+    { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+
+  const title =
+    selected.type === "all"      ? "Tất cả ghi chú" :
+    selected.type === "category" ? CAT_LABEL[selected.value] :
+                                   `Thẻ: ${selected.name || ""}`;
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Ghi chú</h1>
-          <p className="page-sub">{today}</p>
-        </div>
-        <button className="btn" onClick={() => nav("/note/new")}>+ Ghi chú mới</button>
-      </div>
-
-      <div className="chips" style={{ marginBottom: 20 }}>
-        {FILTERS.map((f) => (
-          <button key={f.key} className={"chip" + (filter === f.key ? " active" : "")}
-            onClick={() => setFilter(f.key)}>{f.label}</button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="center" style={{ padding: 60 }}><div className="spinner" /></div>
-      ) : shown.length === 0 ? (
-        <div className="empty">
-          <div className="big">📝</div>
-          Chưa có ghi chú nào trong mục này.
-          <div style={{ marginTop: 14 }}>
-            <button className="btn sm" onClick={() => nav("/note/new")}>Viết ghi chú đầu tiên</button>
+    <div className="notes-layout">
+      <TagsSidebar selected={selected} onSelect={setSelected} />
+      <div className="notes-main">
+        <div className="page-head">
+          <div>
+            <h1 className="page-title">{title}</h1>
+            <p className="page-sub">{today} · {shown.length} ghi chú</p>
           </div>
+          <button className="btn" onClick={() => nav("/note/new")}>+ Ghi chú mới</button>
         </div>
-      ) : (
-        <div className="notes-grid">{shown.map((n) => <NoteCard key={n.id} note={n} />)}</div>
-      )}
-    </>
+
+        {loading ? (
+          <div className="center" style={{ padding: 60 }}><div className="spinner" /></div>
+        ) : shown.length === 0 ? (
+          <div className="empty">
+            <div className="big">📝</div>
+            Chưa có ghi chú nào.
+            <div style={{ marginTop: 14 }}>
+              <button className="btn sm" onClick={() => nav("/note/new")}>Viết ghi chú đầu tiên</button>
+            </div>
+          </div>
+        ) : (
+          <div className="notes-grid">{shown.map((n) => <NoteCard key={n.id} note={n} />)}</div>
+        )}
+      </div>
+    </div>
   );
 }

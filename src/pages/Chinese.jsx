@@ -7,17 +7,16 @@ import Spinner from "../components/Spinner.jsx";
 import YouglishWidget from "../components/YouglishWidget.jsx";
 
 const ACTIONS = [
-  { key: "translate", label: "Dịch", ico: "🌐" },
-  { key: "explain", label: "Giải thích", ico: "📖" },
-  { key: "examples", label: "Ví dụ", ico: "❝" },
-  { key: "video", label: "Video", ico: "▶" },
-  { key: "synonyms", label: "Đồng nghĩa", ico: "🔁" },
+  { key: "translate", label: "Dịch",        ico: "🌐" },
+  { key: "explain",   label: "Giải thích",  ico: "📖" },
+  { key: "examples",  label: "Ví dụ",       ico: "❝" },
+  { key: "video",     label: "Video",       ico: "▶" },
+  { key: "synonyms",  label: "Đồng nghĩa",  ico: "🔁" },
 ];
 
 function speak(word) {
   try {
-    const u = new SpeechSynthesisUtterance(word);
-    u.lang = "zh-CN"; u.rate = 0.9;
+    const u = new SpeechSynthesisUtterance(word); u.lang = "zh-CN"; u.rate = 0.9;
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   } catch (e) {}
 }
@@ -45,7 +44,7 @@ export default function Chinese() {
     const { data: row } = await supabase.from("zhnote_searches").select("data").eq("word", term).maybeSingle();
     const cached = row?.data || {};
     setData(cached);
-    if (!cached.translate) run("translate", term, cached); // tự dịch ngay khi tra
+    if (!cached.translate) run("translate", term, cached);
   }
 
   async function run(action, forceWord, baseData) {
@@ -69,7 +68,7 @@ export default function Chinese() {
   }
 
   return (
-    <>
+    <div className="page">
       <div className="page-head">
         <div>
           <h1 className="page-title">Tiếng Trung</h1>
@@ -78,7 +77,6 @@ export default function Chinese() {
       </div>
 
       <div className="zh-layout">
-        {/* CỘT CHÍNH */}
         <div className="stack">
           <div className="row">
             <input className="input zh" value={input} placeholder="Gõ từ / chữ Hán cần tra…"
@@ -130,7 +128,6 @@ export default function Chinese() {
           )}
         </div>
 
-        {/* CỘT LỊCH SỬ */}
         <aside className="zh-aside">
           <p className="field-label">🕘 Lịch sử tra cứu</p>
           {history.length === 0 ? (
@@ -148,7 +145,7 @@ export default function Chinese() {
           )}
         </aside>
       </div>
-    </>
+    </div>
   );
 }
 

@@ -31,7 +31,7 @@ export default function Translate() {
   }
 
   return (
-    <>
+    <div className="page" style={{ maxWidth: 920 }}>
       <div className="page-head">
         <div>
           <h1 className="page-title">Dịch câu</h1>
@@ -39,7 +39,7 @@ export default function Translate() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 820, margin: "0 auto" }} className="stack">
+      <div className="stack">
         <div className="card card-pad stack">
           <textarea className="textarea zh" value={text} style={{ fontSize: 17, minHeight: 130 }}
             placeholder="我从越南来，正在学习中文。" onChange={(e) => setText(e.target.value)} />
@@ -94,6 +94,6 @@ export default function Translate() {
 
         {res?.__error && <div className="card card-pad" style={{ color: "#d4537e" }}>{res.__error}</div>}
       </div>
-    </>
+    </div>
   );
 }
