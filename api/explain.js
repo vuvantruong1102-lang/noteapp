@@ -1,15 +1,20 @@
-// POST { word } -> { word, source, source_url, intro_vi, etymology_vi, etymology_found, version }
-// FIX v2: "字源演变" thường xuất hiện 2 lần trên trang Baike (mục lục + tiêu đề
-// section thật). Trước đây code lấy lần xuất hiện đầu tiên (trong mục lục)
-// nên cắt đoạn rỗng. Bản này quét tất cả vị trí và lấy đoạn dài nhất.
+// POST { word } -> { word, source, intro_vi, etymology_vi, etymology_found,
+//                    etymology_section, version }
+// Tìm mục nguồn gốc tự dạng trong Baike. Thử theo thứ tự:
+//   字源演变 -> 字源解说 -> 文字源流 -> 字形演变 -> 词源演变 -> 词源
+// Lấy đoạn DÀI NHẤT trong tất cả các vị trí (TOC sẽ ngắn, nội dung thật dài).
 import * as cheerio from "cheerio";
 import { chatJSON, isChinese } from "./_lib/openai.js";
 
-const SCHEMA_VERSION = 2; // bump khi đổi cách bóc text -> cache cũ tự refetch
+const SCHEMA_VERSION = 3; // bump để cache cũ tự refetch khi mở lại
 
+const ETYMOLOGY_HEADINGS = [
+  "字源演变", "字源解说", "文字源流", "字形演变", "词源演变", "词源",
+];
 const NEXT_SECTION_MARKERS = [
   "详细释义", "现代释义", "古籍释义", "字形书法",
-  "音韵汇集", "词性变化", "基本释义", "康熙字典", "近义词", "反义词",
+  "音韵汇集", "词性变化", "基本释义", "康熙字典",
+  "近义词", "反义词", "笔顺", "笔画", "注音",
 ];
 const BLOCK_MARKERS = ["百度安全验证", "请输入验证码", "网络不给力", "antispider"];
 
@@ -30,29 +35,36 @@ function extractIntro(html) {
   return null;
 }
 
-// FIX chính: quét toàn bộ vị trí "字源演变", lấy đoạn DÀI NHẤT.
+// Thử mọi tiêu đề + mọi vị trí; lấy slice dài nhất.
 function extractEtymology(text) {
-  const matches = [];
-  let pos = 0;
-  while (true) {
-    const idx = text.indexOf("字源演变", pos);
-    if (idx === -1) break;
-    const start = idx + "字源演变".length;
-    let end = text.length;
-    for (const m of NEXT_SECTION_MARKERS) {
-      const mi = text.indexOf(m, start);
-      if (mi !== -1 && mi < end) end = mi;
+  const all = [];
+  for (const heading of ETYMOLOGY_HEADINGS) {
+    let pos = 0;
+    while (true) {
+      const idx = text.indexOf(heading, pos);
+      if (idx === -1) break;
+      const start = idx + heading.length;
+      let end = text.length;
+      for (const m of NEXT_SECTION_MARKERS) {
+        const mi = text.indexOf(m, start);
+        if (mi !== -1 && mi < end) end = mi;
+      }
+      // Còn các tiêu đề etymology khác cũng làm điểm dừng (nếu trang có nhiều)
+      for (const h2 of ETYMOLOGY_HEADINGS) {
+        if (h2 === heading) continue;
+        const hi = text.indexOf(h2, start);
+        if (hi !== -1 && hi < end) end = hi;
+      }
+      end = Math.min(end, start + 10000);
+      let slice = text.slice(start, end).trim();
+      slice = slice.replace(/^(?:\s|播报|编辑)+/, "").trim();
+      all.push({ heading, slice });
+      pos = idx + 1;
     }
-    end = Math.min(end, start + 10000);
-    let slice = text.slice(start, end).trim();
-    // Bỏ nhãn widget "播报" "编辑" còn dính ở đầu (nút trên Baike sau strip HTML)
-    slice = slice.replace(/^(?:\s|播报|编辑)+/, "").trim();
-    matches.push(slice);
-    pos = idx + 1;
   }
-  if (matches.length === 0) return null;
-  matches.sort((a, b) => b.length - a.length);
-  return matches[0].length > 50 ? matches[0] : null;
+  if (all.length === 0) return null;
+  all.sort((a, b) => b.slice.length - a.slice.length);
+  return all[0].slice.length > 50 ? { heading: all[0].heading, text: all[0].slice } : null;
 }
 
 async function fetchBaike(word) {
@@ -88,37 +100,37 @@ export default async function handler(req, res) {
   try {
     const baike = await fetchBaike(word);
 
-    let introZh = null, etymologyZh = null;
+    let introZh = null, etyResult = null;
     if (baike.ok) {
       const text = htmlToText(baike.html);
-      // Lấy nhiều text hơn cho intro để AI có đủ ngữ cảnh sàng lọc.
       introZh = extractIntro(baike.html) || text.slice(0, 1500);
-      etymologyZh = extractEtymology(text);
+      etyResult = extractEtymology(text);
     }
 
-    if (baike.ok && etymologyZh) {
+    if (baike.ok && etyResult) {
       const payload = await chatJSON({
         temperature: 0.2,
         system: "Bạn là chuyên gia từ nguyên Hán ngữ. Dịch tiếng Việt tự nhiên, đầy đủ, không tự bịa thêm. Chỉ trả JSON.",
         user:
           `Văn bản trích từ Baidu Baike cho chữ "${word}".\n\n` +
           `[VĂN BẢN ĐẦU TRANG — có thể chứa mục lục và bảng thông tin cơ bản]\n${introZh}\n\n` +
-          `[MỤC 字源演变]\n${etymologyZh}\n\n` +
+          `[MỤC ${etyResult.heading} — nguồn gốc/diễn biến tự dạng]\n${etyResult.text}\n\n` +
           `Yêu cầu:\n` +
           `1. Từ phần đầu trang, BỎ QUA mục lục (TOC) và bảng thông tin cơ bản ` +
           `(中文名/拼音/部首/笔画 v.v.), chỉ trích lấy phần mô tả/định nghĩa chính của từ, ` +
           `dịch ĐẦY ĐỦ sang tiếng Việt.\n` +
-          `2. Dịch ĐẦY ĐỦ mục 字源演变, giữ trọn nội dung, không rút gọn, không bịa thêm.\n` +
+          `2. Dịch ĐẦY ĐỦ mục ${etyResult.heading}, giữ trọn nội dung, không rút gọn, không bịa thêm.\n` +
           `JSON: {"intro_vi":"...","etymology_vi":"..."}`,
       });
       return res.status(200).json({
         word, source: "baidu_baike", source_url: baike.url,
         intro_vi: payload.intro_vi || "", etymology_vi: payload.etymology_vi || "",
-        etymology_found: true, version: SCHEMA_VERSION,
+        etymology_found: true, etymology_section: etyResult.heading,
+        version: SCHEMA_VERSION,
       });
     }
 
-    if (baike.ok && !etymologyZh) {
+    if (baike.ok && !etyResult) {
       const payload = await chatJSON({
         temperature: 0.2,
         system: "Dịch sang tiếng Việt tự nhiên, bỏ qua mục lục và bảng thông tin. Chỉ trả JSON.",
@@ -129,11 +141,12 @@ export default async function handler(req, res) {
       return res.status(200).json({
         word, source: "baidu_baike", source_url: baike.url,
         intro_vi: payload.intro_vi || "", etymology_vi: "",
-        etymology_found: false, version: SCHEMA_VERSION,
+        etymology_found: false, etymology_section: null,
+        version: SCHEMA_VERSION,
       });
     }
 
-    // Baike fail -> AI giải thích sơ lược, etymology để trống
+    // Baike fail
     const payload = await chatJSON({
       temperature: 0.3,
       system: "Bạn giải thích chữ Hán cho người Việt học. Chỉ trả JSON.",
@@ -144,7 +157,8 @@ export default async function handler(req, res) {
       word, source: "ai_fallback", source_url: null,
       source_note: `Không lấy được Baike (${baike.reason}).`,
       intro_vi: payload.intro_vi || "", etymology_vi: "",
-      etymology_found: false, version: SCHEMA_VERSION,
+      etymology_found: false, etymology_section: null,
+      version: SCHEMA_VERSION,
     });
   } catch (e) {
     console.error("explain", e);
