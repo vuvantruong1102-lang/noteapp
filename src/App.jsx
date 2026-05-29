@@ -6,6 +6,7 @@ import Notes from "./pages/Notes.jsx";
 import NoteEditor from "./pages/NoteEditor.jsx";
 import Chinese from "./pages/Chinese.jsx";
 import Translate from "./pages/Translate.jsx";
+import TranslateEn from "./pages/TranslateEn.jsx";
 
 function Guard({ children }) {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/note/:id" element={<Guard><NoteEditor /></Guard>} />
           <Route path="/zh" element={<Guard><Chinese /></Guard>} />
           <Route path="/translate" element={<Guard><Translate /></Guard>} />
+          <Route path="/translate-en" element={<Guard><TranslateEn /></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
