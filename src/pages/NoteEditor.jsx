@@ -185,23 +185,14 @@ export default function NoteEditor() {
       <div className="editor-card">
         <input className="editor-title" placeholder="Tiêu đề"
           value={title} onChange={(e) => setTitle(e.target.value)} />
-        <RichEditor value={content} onChange={setContent} placeholder="Bắt đầu viết… (tự động lưu)" />
-      </div>
 
-      <div className="editor-meta">
-        <div className="meta-section">
-          <p className="field-label">Nhóm</p>
-          <div className="chips">
-            {CATS.map(c => (
-              <button key={c.key} className={"chip" + (category === c.key ? " active" : "")}
-                onClick={() => setCategory(c.key)}>{c.label}</button>
-            ))}
-          </div>
-        </div>
+        {/* Thanh meta ngay dưới tiêu đề: Nhóm + Thẻ + Ghim */}
+        <div className="editor-metabar">
+          <select value={category} onChange={(e) => setCategory(e.target.value)} title="Nhóm">
+            {CATS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
 
-        <div className="meta-section" style={{ position: "relative" }}>
-          <p className="field-label">Thẻ</p>
-          <div className="chips">
+          <div className="metabar-tags">
             {selectedTags.map(t => (
               <span key={t.id} className="chip active" style={{ background: t.color, borderColor: t.color }}>
                 {t.name}
@@ -209,7 +200,7 @@ export default function NoteEditor() {
                   style={{ marginLeft: 6, color: "#fff", lineHeight: 1 }}>×</button>
               </span>
             ))}
-            <button className="chip" onClick={() => setPickerOpen(v => !v)}>+ Thêm thẻ</button>
+            <button className="chip" onClick={() => setPickerOpen(v => !v)}>+ Thẻ</button>
             {pickerOpen && (
               <div className="tag-popover">
                 {availableTags.length > 0 ? (
@@ -234,12 +225,14 @@ export default function NoteEditor() {
               </div>
             )}
           </div>
+
+          <label className="metabar-pin">
+            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
+            <span>Ghim</span>
+          </label>
         </div>
 
-        <label className="row">
-          <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-          <span>Ghim lên đầu</span>
-        </label>
+        <RichEditor value={content} onChange={setContent} placeholder="Bắt đầu viết… (tự động lưu)" />
       </div>
     </div>
   );
