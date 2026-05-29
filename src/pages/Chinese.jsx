@@ -14,13 +14,13 @@ function speak(word) {
   } catch (e) {}
 }
 
-// Các phần đều có cache trong cùng row zhnote_searches.data.
-// translate cũ thiếu han_viet ➜ vẫn coi là chưa cache để refetch.
+// Cache cũ bị coi là chưa đủ -> refetch.
+// explain yêu cầu version 2 (sửa lỗi bóc 字源演变 lấy nhầm mục lục).
 const NEEDS = {
   translate: (v) => v && v.pinyin && v.han_viet,
   synonyms:  (v) => v && Array.isArray(v.synonyms),
   examples:  (v) => v && Array.isArray(v.examples),
-  explain:   (v) => v && (v.intro_vi !== undefined),
+  explain:   (v) => v && v.version >= 2 && v.intro_vi !== undefined,
 };
 
 export default function Chinese() {
@@ -43,26 +43,25 @@ export default function Chinese() {
     const term = (w || input).trim();
     if (!term) return;
     setWord(term); setInput(term); setVideoOpen(false);
-
-    // Nạp cache
     const { data: row } = await supabase.from("zhnote_searches")
       .select("data").eq("word", term).maybeSingle();
     const cached = row?.data || {};
     setData(cached);
-
-    // Fire song song những phần còn thiếu (hoặc cache cũ chưa đủ field)
     const todo = Object.keys(NEEDS).filter((k) => !NEEDS[k](cached[k]));
-    todo.forEach((k) => fetchSection(term, k, cached));
+    todo.forEach((k) => fetchSection(term, k));
   }
 
-  async function fetchSection(w, key, baseData) {
+  // Refetch một section bất kỳ (kể cả khi đã cache).
+  async function fetchSection(w, key) {
+    const target = w || word;
+    if (!target) return;
     setLoading((p) => ({ ...p, [key]: true }));
     try {
-      const res = await api[key](w);
+      const res = await api[key](target);
       setData((prev) => {
         const next = { ...prev, [key]: res };
         supabase.from("zhnote_searches").upsert(
-          { user_id: user.id, word: w, pinyin: pinyin(w, { toneType: "symbol" }), data: next },
+          { user_id: user.id, word: target, pinyin: pinyin(target, { toneType: "symbol" }), data: next },
           { onConflict: "user_id,word" }
         ).then(() => loadHistory());
         return next;
@@ -107,7 +106,7 @@ export default function Chinese() {
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
                   <div className="row" style={{ alignItems: "baseline", gap: 14 }}>
                     <span className="zh" style={{ fontSize: 42, fontWeight: 500 }}>{word}</span>
-                    <span style={{ color: "var(--green-600)", fontWeight: 600, fontSize: 19 }}>
+                    <span style={{ color: "var(--accent-700)", fontWeight: 600, fontSize: 19 }}>
                       {pinyin(word, { toneType: "symbol" })}
                     </span>
                   </div>
@@ -115,19 +114,23 @@ export default function Chinese() {
                 </div>
               </div>
 
-              <Section title="Pinyin · Hán Việt · Nghĩa" loading={loading.translate}>
+              <Section title="Pinyin · Hán Việt · Nghĩa"
+                loading={loading.translate} onRefresh={() => fetchSection(word, "translate")}>
                 <TranslateBody d={data.translate} />
               </Section>
 
-              <Section title="Từ đồng nghĩa" loading={loading.synonyms}>
+              <Section title="Từ đồng nghĩa"
+                loading={loading.synonyms} onRefresh={() => fetchSection(word, "synonyms")}>
                 <SynonymsBody d={data.synonyms} />
               </Section>
 
-              <Section title="Ví dụ" loading={loading.examples}>
+              <Section title="Ví dụ"
+                loading={loading.examples} onRefresh={() => fetchSection(word, "examples")}>
                 <ExamplesBody d={data.examples} />
               </Section>
 
-              <Section title="Giải thích — Baidu Baike" loading={loading.explain}>
+              <Section title="Giải thích — Baidu Baike"
+                loading={loading.explain} onRefresh={() => fetchSection(word, "explain")}>
                 <ExplainBody d={data.explain} />
               </Section>
 
@@ -154,7 +157,7 @@ export default function Chinese() {
                 <div key={h.word} onClick={() => lookup(h.word)} className="row"
                   style={{ padding: "11px 14px", cursor: "pointer", borderTop: i ? "1px solid var(--border)" : "none" }}>
                   <span className="zh" style={{ fontSize: 18 }}>{h.word}</span>
-                  <span className="tiny" style={{ color: "var(--green-600)" }}>{h.pinyin}</span>
+                  <span className="tiny" style={{ color: "var(--accent-700)" }}>{h.pinyin}</span>
                 </div>
               ))}
             </div>
@@ -165,12 +168,15 @@ export default function Chinese() {
   );
 }
 
-function Section({ title, loading, children }) {
+function Section({ title, loading, onRefresh, children }) {
   return (
     <div className="card card-pad stack fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <p className="field-label" style={{ margin: 0 }}>{title}</p>
-        {loading && <div className="spinner" />}
+        <div className="row" style={{ gap: 6 }}>
+          {loading ? <div className="spinner" /> :
+            onRefresh ? <button onClick={onRefresh} title="Tải lại" style={{ width: 28, height: 28, borderRadius: 6, color: "var(--text-mute)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "background .12s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>↻</button> : null}
+        </div>
       </div>
       {children}
     </div>
@@ -179,10 +185,10 @@ function Section({ title, loading, children }) {
 
 function TranslateBody({ d }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
-  if (d.__error) return <div style={{ color: "#d4537e" }}>{d.__error}</div>;
+  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   return (
     <div className="stack">
-      <div><b>Pinyin:</b> <span style={{ color: "var(--green-600)" }}>{d.pinyin}</span></div>
+      <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{d.pinyin}</span></div>
       <div><b>Hán Việt:</b> {d.han_viet || "—"}</div>
       <div><b>Nghĩa:</b> {d.meaning_vi}</div>
     </div>
@@ -191,14 +197,14 @@ function TranslateBody({ d }) {
 
 function SynonymsBody({ d }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
-  if (d.__error) return <div style={{ color: "#d4537e" }}>{d.__error}</div>;
+  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   if (!d.synonyms?.length) return <div className="muted tiny">Không có từ đồng nghĩa.</div>;
   return (
     <div className="stack">
       {d.synonyms.map((s, i) => (
         <div key={i}>
           <div className="row"><span className="zh" style={{ fontSize: 19 }}>{s.word}</span>
-            <span className="tiny" style={{ color: "var(--green-600)" }}>{s.pinyin}</span></div>
+            <span className="tiny" style={{ color: "var(--accent-700)" }}>{s.pinyin}</span></div>
           <div>{s.meaning_vi}</div>
           {s.note_vi && <div className="tiny muted">↳ {s.note_vi}</div>}
         </div>
@@ -209,14 +215,14 @@ function SynonymsBody({ d }) {
 
 function ExamplesBody({ d }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
-  if (d.__error) return <div style={{ color: "#d4537e" }}>{d.__error}</div>;
+  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   if (!d.examples?.length) return <div className="muted tiny">Không có ví dụ.</div>;
   return (
     <div className="ex-grid">
       {d.examples.map((ex, i) => (
-        <div className="card card-pad stack" key={i} style={{ background: "var(--bg)" }}>
+        <div className="card card-pad stack" key={i} style={{ background: "var(--surface-2)" }}>
           <div className="zh" style={{ fontSize: 19 }}>{ex.zh}</div>
-          <div className="tiny" style={{ color: "var(--green-600)" }}>{ex.pinyin}</div>
+          <div className="tiny" style={{ color: "var(--accent-700)" }}>{ex.pinyin}</div>
           <div>{ex.translation_vi}</div>
           {ex.breakdown?.length > 0 && (
             <div className="tiny muted">
@@ -225,7 +231,7 @@ function ExamplesBody({ d }) {
               ))}
             </div>
           )}
-          {ex.grammar_vi && <div className="tiny" style={{ background: "var(--green-50)", padding: "7px 11px", borderRadius: 8 }}>📌 {ex.grammar_vi}</div>}
+          {ex.grammar_vi && <div className="tiny" style={{ background: "var(--accent-tint)", padding: "7px 11px", borderRadius: 8 }}>📌 {ex.grammar_vi}</div>}
         </div>
       ))}
     </div>
@@ -234,7 +240,7 @@ function ExamplesBody({ d }) {
 
 function ExplainBody({ d }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
-  if (d.__error) return <div style={{ color: "#d4537e" }}>{d.__error}</div>;
+  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   return (
     <div className="stack">
       {d.source === "baidu_baike" ? (
@@ -251,6 +257,7 @@ function ExplainBody({ d }) {
         <div className="muted tiny">
           Không có mục 字源演变 trên Baike cho từ này
           {d.source !== "baidu_baike" && " (hoặc không truy cập được Baike)"}.
+          Bấm nút <b>↻</b> ở góc phải để thử lại.
         </div>
       )}
       {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem trên Baike →</a>}
