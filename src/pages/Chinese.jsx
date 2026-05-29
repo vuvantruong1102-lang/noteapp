@@ -13,10 +13,11 @@ function speak(word) {
   } catch (e) {}
 }
 
-// explain version 3: tìm thêm 文字源流, 字源解说, ... khi không có 字源演变
+// CHỈ translate được auto-fetch khi tra từ.
+// explain (Baike + AI dịch ~15 VND) lazy load — user bấm nút mới fetch.
+// Nhưng nếu đã có trong cache thì vẫn hiện luôn (đọc cache miễn phí).
 const NEEDS = {
   translate: (v) => v && v.pinyin && v.han_viet,
-  explain:   (v) => v && v.version >= 3 && v.intro_vi !== undefined,
 };
 
 export default function Chinese() {
@@ -43,6 +44,8 @@ export default function Chinese() {
       .select("data").eq("word", term).maybeSingle();
     const cached = row?.data || {};
     setData(cached);
+    // Chỉ auto-fetch những key trong NEEDS (translate). Explain bị bỏ ra
+    // ngoài NEEDS nên không tự gọi - user phải bấm nút "Tải giải thích".
     const todo = Object.keys(NEEDS).filter((k) => !NEEDS[k](cached[k]));
     todo.forEach((k) => fetchSection(term, k));
   }
@@ -73,7 +76,7 @@ export default function Chinese() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Tra Tiếng Trung</h1>
-          <p className="page-sub">Pinyin · Hán Việt · nghĩa · giải thích & nguồn gốc tự dạng từ Baike</p>
+          <p className="page-sub">Pinyin · Hán Việt · nghĩa tự hiện. Giải thích từ Baike chỉ tải khi bấm.</p>
         </div>
       </div>
 
@@ -114,8 +117,23 @@ export default function Chinese() {
               </Section>
 
               <Section title="Giải thích — Baidu Baike"
-                loading={loading.explain} onRefresh={() => fetchSection(word, "explain")}>
-                <ExplainBody d={data.explain} />
+                loading={loading.explain}
+                onRefresh={data.explain ? () => fetchSection(word, "explain") : null}>
+                {data.explain ? (
+                  <ExplainBody d={data.explain} />
+                ) : (
+                  <div className="stack">
+                    <p className="muted tiny" style={{ margin: 0 }}>
+                      Chưa tải. Bấm bên dưới để gọi Baidu Baike và AI dịch sang tiếng Việt.
+                    </p>
+                    <button className="btn ghost sm"
+                      onClick={() => fetchSection(word, "explain")}
+                      title="Sẽ tốn ~15 VND/từ. Sau đó cache miễn phí khi tra lại."
+                      style={{ alignSelf: "flex-start" }}>
+                      ▼ Tải giải thích từ Baike
+                    </button>
+                  </div>
+                )}
               </Section>
 
               <div className="card card-pad">
@@ -180,9 +198,8 @@ function TranslateBody({ d }) {
 }
 
 function ExplainBody({ d }) {
-  if (!d) return <div className="muted tiny">Đang chờ…</div>;
+  if (!d) return null;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
-  // Hiển thị tên section thực tế tìm được (字源演变 / 文字源流 / ...)
   const heading = d.etymology_section || "字源演变";
   return (
     <div className="stack">
