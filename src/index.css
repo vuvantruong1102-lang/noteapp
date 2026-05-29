@@ -413,3 +413,10 @@ a { color: var(--accent-700); text-decoration: none; }
   color: var(--text); font-size: 17px; box-shadow: var(--shadow); }
 .nav-show:hover { background: var(--hover); }
 .app.nav-hidden .main { padding-left: 48px; }
+
+/* Mobile: khi thu sidebar -> nội dung FULL màn hình (bỏ chừa trái),
+   chỉ chừa một khoảng nhỏ phía trên cho nút ☰ nổi. */
+@media (max-width: 960px) {
+  .app.nav-hidden .main { padding-left: 0; padding-top: 44px; }
+  .nav-show { top: 8px; left: 10px; }
+}
