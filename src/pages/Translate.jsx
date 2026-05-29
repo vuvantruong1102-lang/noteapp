@@ -47,7 +47,7 @@ export default function Translate() {
     <div className="page" style={{ maxWidth: 920 }}>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Dịch câu</h1>
+          <h1 className="page-title">Dịch tiếng Trung</h1>
           <p className="page-sub">Dán câu tiếng Trung để tách từ, sinh pinyin và giải thích. Bấm vào từng cụm từ để tra nghĩa.</p>
         </div>
       </div>
