@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -20,9 +21,20 @@ export default function App() {
   const loc = useLocation();
   const showSidebar = user && loc.pathname !== "/login";
 
+  const [navHidden, setNavHidden] = useState(() => {
+    try { return localStorage.getItem("vtnotes-nav-hidden") === "1"; } catch { return false; }
+  });
+  function setNav(v) {
+    setNavHidden(v);
+    try { localStorage.setItem("vtnotes-nav-hidden", v ? "1" : "0"); } catch {}
+  }
+
   return (
-    <div className="app">
-      {showSidebar && <Sidebar />}
+    <div className={"app" + (showSidebar && navHidden ? " nav-hidden" : "")}>
+      {showSidebar && !navHidden && <Sidebar onHide={() => setNav(true)} />}
+      {showSidebar && navHidden && (
+        <button className="nav-show" onClick={() => setNav(false)} title="Hiện menu" aria-label="Hiện menu">☰</button>
+      )}
       <main className="main">
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />

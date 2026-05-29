@@ -383,3 +383,33 @@ a { color: var(--accent-700); text-decoration: none; }
 }
 /* nút theme trong sidebar */
 .nav-item .theme-state { margin-left: auto; font-size: 11px; color: var(--text-mute); }
+
+/* ====================== EDITOR FULL-WIDTH + META BAR + ẨN SIDEBAR ====================== */
+.editor-page { max-width: none; margin: 0; padding: 22px 32px 60px; }
+
+.editor-metabar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 30px; border-top: 1px solid var(--border);
+}
+.editor-metabar select {
+  height: 30px; border: 1px solid var(--border-strong); border-radius: 7px;
+  padding: 0 10px; font-size: 13px; background: var(--surface); color: var(--text);
+  outline: none; cursor: pointer;
+}
+.metabar-tags { position: relative; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.metabar-pin { display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+  font-size: 13px; color: var(--text-soft); cursor: pointer; white-space: nowrap; }
+
+/* Nút thu gọn trong sidebar + nút mở lại khi đã ẩn */
+.nav-collapse { margin-left: auto; width: 28px; height: 28px; border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-mute); font-size: 17px; line-height: 1; }
+.nav-collapse:hover { background: var(--hover); color: var(--text); }
+
+.nav-show { position: fixed; top: 14px; left: 8px; z-index: 50;
+  width: 34px; height: 34px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: 17px; box-shadow: var(--shadow); }
+.nav-show:hover { background: var(--hover); }
+.app.nav-hidden .main { padding-left: 48px; }
