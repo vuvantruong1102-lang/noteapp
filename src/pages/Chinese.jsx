@@ -3,7 +3,6 @@ import { pinyin } from "pinyin-pro";
 import { supabase } from "../lib/supabase.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
-import YouglishWidget from "../components/YouglishWidget.jsx";
 
 function speak(word) {
   try {
@@ -13,9 +12,7 @@ function speak(word) {
   } catch (e) {}
 }
 
-// CHỈ translate được auto-fetch khi tra từ.
-// explain (Baike + AI dịch ~15 VND) lazy load — user bấm nút mới fetch.
-// Nhưng nếu đã có trong cache thì vẫn hiện luôn (đọc cache miễn phí).
+// Auto-fetch chỉ translate. explain và zdic lazy load — accordion bấm vào mới gọi.
 const NEEDS = {
   translate: (v) => v && v.pinyin && v.han_viet,
 };
@@ -26,7 +23,6 @@ export default function Chinese() {
   const [word, setWord] = useState("");
   const [data, setData] = useState({});
   const [loading, setLoading] = useState({});
-  const [videoOpen, setVideoOpen] = useState(false);
   const [history, setHistory] = useState([]);
 
   async function loadHistory() {
@@ -39,13 +35,11 @@ export default function Chinese() {
   async function lookup(w) {
     const term = (w || input).trim();
     if (!term) return;
-    setWord(term); setInput(term); setVideoOpen(false);
+    setWord(term); setInput(term);
     const { data: row } = await supabase.from("zhnote_searches")
       .select("data").eq("word", term).maybeSingle();
     const cached = row?.data || {};
     setData(cached);
-    // Chỉ auto-fetch những key trong NEEDS (translate). Explain bị bỏ ra
-    // ngoài NEEDS nên không tự gọi - user phải bấm nút "Tải giải thích".
     const todo = Object.keys(NEEDS).filter((k) => !NEEDS[k](cached[k]));
     todo.forEach((k) => fetchSection(term, k));
   }
@@ -76,7 +70,7 @@ export default function Chinese() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Tra Tiếng Trung</h1>
-          <p className="page-sub">Pinyin · Hán Việt · nghĩa tự hiện. Giải thích từ Baike chỉ tải khi bấm.</p>
+          <p className="page-sub">Pinyin · Hán Việt · nghĩa tự hiện. Giải thích từ Baike / zdic chỉ tải khi bấm vào.</p>
         </div>
       </div>
 
@@ -116,35 +110,19 @@ export default function Chinese() {
                 <TranslateBody d={data.translate} />
               </Section>
 
-              <Section title="Giải thích — Baidu Baike"
-                loading={loading.explain}
-                onRefresh={data.explain ? () => fetchSection(word, "explain") : null}>
-                {data.explain ? (
-                  <ExplainBody d={data.explain} />
-                ) : (
-                  <div className="stack">
-                    <p className="muted tiny" style={{ margin: 0 }}>
-                      Chưa tải. Bấm bên dưới để gọi Baidu Baike và AI dịch sang tiếng Việt.
-                    </p>
-                    <button className="btn ghost sm"
-                      onClick={() => fetchSection(word, "explain")}
-                      title="Sẽ tốn ~15 VND/từ. Sau đó cache miễn phí khi tra lại."
-                      style={{ alignSelf: "flex-start" }}>
-                      ▼ Tải giải thích từ Baike
-                    </button>
-                  </div>
-                )}
-              </Section>
+              <Accordion title="Giải thích — Baidu Baike"
+                loaded={!!data.explain} loading={loading.explain}
+                onLoad={() => fetchSection(word, "explain")}
+                onRefresh={() => fetchSection(word, "explain")}>
+                <ExplainBody d={data.explain} />
+              </Accordion>
 
-              <div className="card card-pad">
-                <div className="row" style={{ justifyContent: "space-between" }}>
-                  <p className="field-label" style={{ margin: 0 }}>▶ Video phát âm (Youglish)</p>
-                  <button className="btn ghost sm" onClick={() => setVideoOpen((v) => !v)}>
-                    {videoOpen ? "Ẩn" : "Mở"}
-                  </button>
-                </div>
-                {videoOpen && <div style={{ marginTop: 12 }}><YouglishWidget word={word} /></div>}
-              </div>
+              <Accordion title="Giải thích — zdic.net (汉典)"
+                loaded={!!data.zdic} loading={loading.zdic}
+                onLoad={() => fetchSection(word, "zdic")}
+                onRefresh={() => fetchSection(word, "zdic")}>
+                <ZdicBody d={data.zdic} />
+              </Accordion>
             </>
           )}
         </div>
@@ -177,13 +155,68 @@ function Section({ title, loading, onRefresh, children }) {
         <p className="field-label" style={{ margin: 0 }}>{title}</p>
         <div className="row" style={{ gap: 6 }}>
           {loading ? <div className="spinner" /> :
-            onRefresh ? <button onClick={onRefresh} title="Tải lại" style={{ width: 28, height: 28, borderRadius: 6, color: "var(--text-mute)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "background .12s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>↻</button> : null}
+            onRefresh ? <button onClick={onRefresh} title="Tải lại" style={refreshStyle}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>↻</button> : null}
         </div>
       </div>
       {children}
     </div>
   );
 }
+
+// Accordion: bấm vào header để mở/đóng. Lần mở đầu tiên (chưa có data) sẽ
+// trigger onLoad để fetch dữ liệu. Các lần mở sau hiển thị cache.
+function Accordion({ title, loaded, loading, onLoad, onRefresh, children }) {
+  const [open, setOpen] = useState(false);
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && !loaded && !loading) onLoad?.();
+  }
+
+  return (
+    <div className="card stack fade-in" style={{ overflow: "hidden" }}>
+      <button onClick={toggle} className="row"
+        style={{
+          width: "100%", padding: "14px 18px", justifyContent: "space-between",
+          background: "transparent", border: "none", cursor: "pointer",
+          borderBottom: open ? "1px solid var(--border)" : "none",
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = "var(--hover)"}
+        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+        <span className="field-label" style={{ margin: 0 }}>
+          <span style={{ display: "inline-block", width: 14, color: "var(--accent-700)" }}>{open ? "▾" : "▸"}</span>
+          {title}
+        </span>
+        <div className="row" style={{ gap: 6 }}>
+          {loading && <div className="spinner" />}
+          {open && loaded && !loading && onRefresh && (
+            <span onClick={(e) => { e.stopPropagation(); onRefresh(); }}
+              title="Tải lại" style={refreshStyle}>↻</span>
+          )}
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding: "14px 18px" }}>
+          {loading && !loaded ? (
+            <div className="muted tiny">Đang tải, vui lòng đợi vài giây…</div>
+          ) : !loaded ? (
+            <div className="muted tiny">Chưa có dữ liệu. Bấm vào tiêu đề để tải.</div>
+          ) : children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const refreshStyle = {
+  width: 28, height: 28, borderRadius: 6, color: "var(--text-mute)",
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  fontSize: 15, transition: "background .12s", cursor: "pointer",
+  border: "none", background: "transparent",
+};
 
 function TranslateBody({ d }) {
   if (!d) return <div className="muted tiny">Đang chờ…</div>;
@@ -193,6 +226,11 @@ function TranslateBody({ d }) {
       <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{d.pinyin}</span></div>
       <div><b>Hán Việt:</b> {d.han_viet || "—"}</div>
       <div><b>Nghĩa:</b> {d.meaning_vi}</div>
+      {d._sources && (d._sources.cedict || d._sources.wiktionary) && (
+        <div className="tiny muted" style={{ marginTop: 4 }}>
+          Nguồn: {d._sources.cedict && "CC-CEDICT"}{d._sources.cedict && d._sources.wiktionary && " · "}{d._sources.wiktionary && "Wiktionary"}
+        </div>
+      )}
     </div>
   );
 }
@@ -215,12 +253,49 @@ function ExplainBody({ d }) {
         <div style={{ whiteSpace: "pre-wrap" }}>{d.etymology_vi}</div>
       ) : (
         <div className="muted tiny">
-          Không tìm thấy mục nguồn gốc tự dạng (字源演变 / 文字源流 / 字源解说) trên Baike cho từ này
+          Không tìm thấy mục nguồn gốc tự dạng trên Baike cho từ này
           {d.source !== "baidu_baike" && " (hoặc không truy cập được Baike)"}.
-          Bấm nút <b>↻</b> ở góc phải để thử lại.
         </div>
       )}
       {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem trên Baike →</a>}
+    </div>
+  );
+}
+
+function ZdicBody({ d }) {
+  if (!d) return null;
+  if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
+  if (d.source === "fail") {
+    return <div className="muted tiny">{d.source_note || "Không lấy được zdic."}</div>;
+  }
+  const hasContent = d.basic_vi || d.etymology_vi || d.shuowen_vi;
+  return (
+    <div className="stack">
+      <span className="badge tieng_trung">Nguồn: zdic.net (汉典)</span>
+      {!hasContent && (
+        <div className="muted tiny">{d.source_note || "Trang zdic không có nội dung phù hợp."}</div>
+      )}
+      {d.basic_vi && (
+        <div>
+          <p className="field-label" style={{ margin: 0 }}>基本解释 — Nghĩa cơ bản</p>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.basic_vi}</div>
+        </div>
+      )}
+      {d.etymology_vi && (
+        <div>
+          <div className="divider" />
+          <p className="field-label" style={{ margin: 0 }}>{d.etymology_section || "字源字形"} — Nguồn gốc tự dạng</p>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.etymology_vi}</div>
+        </div>
+      )}
+      {d.shuowen_vi && (
+        <div>
+          <div className="divider" />
+          <p className="field-label" style={{ margin: 0 }}>说文解字 — Thuyết văn giải tự</p>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.shuowen_vi}</div>
+        </div>
+      )}
+      {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem trên zdic →</a>}
     </div>
   );
 }
