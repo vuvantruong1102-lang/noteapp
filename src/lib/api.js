@@ -1,4 +1,3 @@
-// Gọi các serverless function ở /api. Cùng origin nên không cần CORS.
 async function post(path, body) {
   const res = await fetch(path, {
     method: "POST",
@@ -11,10 +10,12 @@ async function post(path, body) {
 }
 
 export const api = {
-  lookup:      (word) => post("/api/lookup", { word }),                          // tức thì, không AI
+  lookup:      (word) => post("/api/lookup", { word }),
   translatevi: (word, definition_en, han_viet) =>
-                 post("/api/translatevi", { word, definition_en, han_viet }),    // AI dịch Việt
-  explain:     (word) => post("/api/explain", { word }),
-  zdic:        (word) => post("/api/zdic",    { word }),
-  sentence:    (text) => post("/api/sentence", { text }),
+                 post("/api/translatevi", { word, definition_en, han_viet }),
+  examples:    (word) => post("/api/examples",  { word }),
+  compounds:   (word) => post("/api/compounds", { word }),
+  explain:     (word) => post("/api/explain",   { word }),
+  zdic:        (word) => post("/api/zdic",      { word }),
+  sentence:    (text) => post("/api/sentence",  { text }),
 };
