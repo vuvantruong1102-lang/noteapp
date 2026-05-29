@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
-import BottomNav from "./components/BottomNav.jsx";
+import Sidebar from "./components/Sidebar.jsx";
 import Login from "./pages/Login.jsx";
 import Notes from "./pages/Notes.jsx";
 import NoteEditor from "./pages/NoteEditor.jsx";
@@ -17,20 +17,24 @@ function Guard({ children }) {
 export default function App() {
   const { user } = useAuth();
   const loc = useLocation();
-  const hideNav = loc.pathname === "/login" || loc.pathname.startsWith("/note/");
+  const showSidebar = user && loc.pathname !== "/login";
 
   return (
     <div className="app">
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/" element={<Guard><Notes /></Guard>} />
-        <Route path="/note/new" element={<Guard><NoteEditor /></Guard>} />
-        <Route path="/note/:id" element={<Guard><NoteEditor /></Guard>} />
-        <Route path="/zh" element={<Guard><Chinese /></Guard>} />
-        <Route path="/translate" element={<Guard><Translate /></Guard>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      {user && !hideNav && <BottomNav />}
+      {showSidebar && <Sidebar />}
+      <main className="main">
+        <div className="container">
+          <Routes>
+            <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+            <Route path="/" element={<Guard><Notes /></Guard>} />
+            <Route path="/note/new" element={<Guard><NoteEditor /></Guard>} />
+            <Route path="/note/:id" element={<Guard><NoteEditor /></Guard>} />
+            <Route path="/zh" element={<Guard><Chinese /></Guard>} />
+            <Route path="/translate" element={<Guard><Translate /></Guard>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </main>
     </div>
   );
 }
