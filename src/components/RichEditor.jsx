@@ -19,9 +19,6 @@ export default function RichEditor({ value, onChange, placeholder }) {
     }
   }, [value]);
 
-  // Lưu lại range được chọn TRONG editor mỗi khi selection thay đổi.
-  // Khi user click sang ô input cỡ chữ thì selection ở editor mất visual,
-  // nhưng savedRangeRef giữ được range trước đó để applyFontSize restore.
   useEffect(() => {
     function onSelectionChange() {
       const sel = window.getSelection();
@@ -33,47 +30,71 @@ export default function RichEditor({ value, onChange, placeholder }) {
     return () => document.removeEventListener("selectionchange", onSelectionChange);
   }, []);
 
-  function exec(cmd, val) {
+  // Đảm bảo selection nằm TRONG editor; nếu không có sẵn thì đặt con trỏ ở cuối
+  function ensureSelectionInEditor() {
     ref.current?.focus();
+    let sel = window.getSelection();
     if (savedRangeRef.current) {
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(savedRangeRef.current);
+      try { sel.removeAllRanges(); sel.addRange(savedRangeRef.current); } catch (e) {}
     }
+    sel = window.getSelection();
+    if (!sel.rangeCount || !ref.current.contains(sel.anchorNode)) {
+      const r = document.createRange();
+      r.selectNodeContents(ref.current);
+      r.collapse(false); // cuối editor
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    return window.getSelection();
+  }
+
+  function exec(cmd, val) {
+    ensureSelectionInEditor();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
     document.execCommand(cmd, false, val);
     onChange?.(ref.current.innerHTML);
   }
 
-  // Bọc đoạn chọn vào <span style="font-size: Npx"> — không dùng execCommand
-  // vì execCommand("fontSize") chỉ nhận 1-7, không hỗ trợ px tự do.
+  // Bọc đoạn chọn vào <span style="font-size: Npx">. Hai trường hợp:
+  //   - Có chọn text: surroundContents (hoặc extract+wrap nếu range xuyên element)
+  //   - Không có chọn (con trỏ rỗng / editor trống): chèn span với zero-width
+  //     space, đặt con trỏ BÊN TRONG span -> gõ tiếp sẽ vào span với cỡ mới.
   function applyFontSize(px) {
     px = parseInt(px);
     if (!px || px < 8 || px > 72) return;
-    if (!savedRangeRef.current) return;
-    ref.current?.focus();
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(savedRangeRef.current);
-    if (sel.isCollapsed) return;
+    if (!ref.current) return;
 
+    const sel = ensureSelectionInEditor();
     const range = sel.getRangeAt(0);
     const span = document.createElement("span");
     span.style.fontSize = px + "px";
-    try {
-      range.surroundContents(span);
-    } catch (e) {
-      // Chọn xuyên qua nhiều element -> extract rồi insert lại
-      const fragment = range.extractContents();
-      span.appendChild(fragment);
+
+    if (sel.isCollapsed) {
+      // Chưa chọn text -> mode "set cỡ chữ rồi gõ tiếp"
+      const zws = document.createTextNode("\u200B"); // zero-width space
+      span.appendChild(zws);
       range.insertNode(span);
+      const newRange = document.createRange();
+      newRange.setStart(zws, 1);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      savedRangeRef.current = newRange.cloneRange();
+    } else {
+      // Có chọn text -> bọc lại
+      try {
+        range.surroundContents(span);
+      } catch (e) {
+        const fragment = range.extractContents();
+        span.appendChild(fragment);
+        range.insertNode(span);
+      }
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      savedRangeRef.current = newRange.cloneRange();
     }
-    // Chọn lại đoạn vừa style để có thể tiếp tục đổi cỡ
-    const newRange = document.createRange();
-    newRange.selectNodeContents(span);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    savedRangeRef.current = newRange.cloneRange();
     onChange?.(ref.current.innerHTML);
   }
 
@@ -97,7 +118,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
           {FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
         </select>
 
-        <span className="font-size-box" title="Chọn chữ rồi nhập cỡ (8-72) → Enter">
+        <span className="font-size-box" title="Nhập cỡ (8-72) rồi Enter. Nếu chưa chọn text, cỡ sẽ áp dụng cho phần gõ tiếp theo.">
           <input
             type="number" min="8" max="72" step="1"
             className="font-size-input" placeholder="cỡ"
@@ -106,6 +127,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
             onKeyDown={(e) => {
               if (e.key === "Enter") { e.preventDefault(); commitSize(); }
             }}
+            onBlur={() => { if (sizeInput) commitSize(); }}
           />
           <span className="font-size-unit">px</span>
         </span>
