@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { pinyin } from "pinyin-pro";
 import { supabase } from "../lib/supabase.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -26,6 +27,14 @@ export default function Chinese() {
   const [history, setHistory] = useState([]);
   const [hanVietFn, setHanVietFn] = useState(null);
   useEffect(() => { import("../lib/hanviet.js").then((m) => setHanVietFn(() => m.hanVietOf)); }, []);
+
+  // Nhận ?w=<từ> (vd bấm cụm từ ở trang Dịch câu) -> tự tra
+  const [searchParams] = useSearchParams();
+  const wParam = searchParams.get("w");
+  useEffect(() => {
+    if (wParam) lookup(wParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wParam]);
 
   async function loadHistory() {
     const { data: rows } = await supabase.from("zhnote_searches")
