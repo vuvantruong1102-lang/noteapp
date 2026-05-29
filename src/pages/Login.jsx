@@ -16,7 +16,7 @@ export default function Login() {
     const { error } = await fn(email.trim(), pass);
     setBusy(false);
     if (error) return setErr(error.message);
-    if (mode === "up") setMsg("Đã tạo tài khoản. Nếu được yêu cầu xác nhận email, hãy kiểm tra hộp thư rồi đăng nhập.");
+    if (mode === "up") setMsg("Đã tạo tài khoản. Nếu được yêu cầu xác nhận email, kiểm tra hộp thư rồi đăng nhập.");
   }
 
   return (
@@ -24,8 +24,8 @@ export default function Login() {
       <div style={{ width: 380, maxWidth: "100%" }}>
         <div style={{ textAlign: "center", marginBottom: 26 }}>
           <div style={{ fontSize: 46 }}>🀄</div>
-          <h1 className="page-title" style={{ marginTop: 8 }}>Hán Notes</h1>
-          <p className="page-sub">Ghi chú & học tiếng Trung mỗi ngày</p>
+          <h1 className="page-title" style={{ marginTop: 8 }}>VTNotes</h1>
+          <p className="page-sub">Ghi chú & học tiếng Trung</p>
         </div>
         <div className="card card-pad stack">
           <div>

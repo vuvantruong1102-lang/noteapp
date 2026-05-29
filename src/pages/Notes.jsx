@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
 import NoteCard from "../components/NoteCard.jsx";
-import TagsSidebar from "../components/TagsSidebar.jsx";
 
 const CAT_LABEL = {
   cong_viec: "Công việc", ca_nhan: "Cá nhân",
@@ -11,9 +10,13 @@ const CAT_LABEL = {
 
 export default function Notes() {
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const cat = params.get("cat");
+  const tag = params.get("tag");
+
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState({ type: "all" });
+  const [tagInfo, setTagInfo] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -27,49 +30,49 @@ export default function Notes() {
   }
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    if (tag) {
+      supabase.from("zhnote_tags").select("name").eq("id", tag).maybeSingle()
+        .then(({ data }) => setTagInfo(data));
+    } else setTagInfo(null);
+  }, [tag]);
+
   const shown = notes.filter((n) => {
-    if (!selected || selected.type === "all") return true;
-    if (selected.type === "category") return n.category === selected.value;
-    if (selected.type === "tag") {
-      return (n.zhnote_note_tags || []).some((nt) => nt.zhnote_tags?.id === selected.value);
-    }
+    if (cat) return n.category === cat;
+    if (tag) return (n.zhnote_note_tags || []).some((nt) => nt.zhnote_tags?.id === tag);
     return true;
   });
 
   const today = new Date().toLocaleDateString("vi-VN",
     { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
-
   const title =
-    selected.type === "all"      ? "Tất cả ghi chú" :
-    selected.type === "category" ? CAT_LABEL[selected.value] :
-                                   `Thẻ: ${selected.name || ""}`;
+    cat ? CAT_LABEL[cat] || "Ghi chú" :
+    tag ? `Thẻ: ${tagInfo?.name || "…"}` :
+    "Tất cả ghi chú";
 
   return (
-    <div className="notes-layout">
-      <TagsSidebar selected={selected} onSelect={setSelected} />
-      <div className="notes-main">
-        <div className="page-head">
-          <div>
-            <h1 className="page-title">{title}</h1>
-            <p className="page-sub">{today} · {shown.length} ghi chú</p>
-          </div>
-          <button className="btn" onClick={() => nav("/note/new")}>+ Ghi chú mới</button>
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{title}</h1>
+          <p className="page-sub">{today} · {shown.length} ghi chú</p>
         </div>
-
-        {loading ? (
-          <div className="center" style={{ padding: 60 }}><div className="spinner" /></div>
-        ) : shown.length === 0 ? (
-          <div className="empty">
-            <div className="big">📝</div>
-            Chưa có ghi chú nào.
-            <div style={{ marginTop: 14 }}>
-              <button className="btn sm" onClick={() => nav("/note/new")}>Viết ghi chú đầu tiên</button>
-            </div>
-          </div>
-        ) : (
-          <div className="notes-grid">{shown.map((n) => <NoteCard key={n.id} note={n} />)}</div>
-        )}
+        <button className="btn" onClick={() => nav("/note/new")}>+ Ghi chú mới</button>
       </div>
+
+      {loading ? (
+        <div className="center" style={{ padding: 60 }}><div className="spinner" /></div>
+      ) : shown.length === 0 ? (
+        <div className="empty">
+          <div className="big">📝</div>
+          Chưa có ghi chú nào trong mục này.
+          <div style={{ marginTop: 14 }}>
+            <button className="btn sm" onClick={() => nav("/note/new")}>Viết ghi chú đầu tiên</button>
+          </div>
+        </div>
+      ) : (
+        <div className="notes-grid">{shown.map((n) => <NoteCard key={n.id} note={n} />)}</div>
+      )}
     </div>
   );
 }
