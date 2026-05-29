@@ -23,17 +23,15 @@ export default function App() {
     <div className="app">
       {showSidebar && <Sidebar />}
       <main className="main">
-        <div className="container">
-          <Routes>
-            <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-            <Route path="/" element={<Guard><Notes /></Guard>} />
-            <Route path="/note/new" element={<Guard><NoteEditor /></Guard>} />
-            <Route path="/note/:id" element={<Guard><NoteEditor /></Guard>} />
-            <Route path="/zh" element={<Guard><Chinese /></Guard>} />
-            <Route path="/translate" element={<Guard><Translate /></Guard>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
+        <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/" element={<Guard><Notes /></Guard>} />
+          <Route path="/note/new" element={<Guard><NoteEditor /></Guard>} />
+          <Route path="/note/:id" element={<Guard><NoteEditor /></Guard>} />
+          <Route path="/zh" element={<Guard><Chinese /></Guard>} />
+          <Route path="/translate" element={<Guard><Translate /></Guard>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </div>
   );
