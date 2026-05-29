@@ -1,4 +1,5 @@
-// POST { word } -> { word, pinyin, meaning_vi, explanation_vi }
+// POST { word } -> { word, pinyin, han_viet, meaning_vi }
+// Bổ sung han_viet (âm Hán-Việt) cho phần Dịch tổng hợp.
 import { chatJSON, isChinese } from "./_lib/openai.js";
 
 export default async function handler(req, res) {
@@ -8,10 +9,15 @@ export default async function handler(req, res) {
 
   try {
     const data = await chatJSON({
-      system: "Bạn là từ điển Hán - Việt chính xác, súc tích. Chỉ trả về JSON.",
+      temperature: 0.2,
+      system: "Bạn là từ điển Hán-Việt chính xác. Chỉ trả về JSON, không thêm chữ nào khác.",
       user:
-        `Từ/chữ tiếng Trung: "${word}". Trả JSON:\n` +
-        `{"pinyin":"pinyin có dấu thanh","meaning_vi":"nghĩa tiếng Việt ngắn gọn (có thể nhiều nghĩa, ngăn cách bằng dấu chấm phẩy)","explanation_vi":"giải thích cách dùng, từ loại, sắc thái trong 2-4 câu"}`,
+        `Từ/chữ tiếng Trung: "${word}". Trả JSON đúng cấu trúc:\n` +
+        `{\n` +
+        `  "pinyin": "pinyin có dấu thanh, viết liền cho từ ghép (ví dụ: xuéxí)",\n` +
+        `  "han_viet": "âm Hán-Việt của từng chữ, ngăn cách bằng dấu cách (ví dụ: học tập)",\n` +
+        `  "meaning_vi": "nghĩa tiếng Việt ngắn gọn; nếu nhiều nghĩa thì ngăn bằng dấu chấm phẩy"\n` +
+        `}`,
     });
     return res.status(200).json({ word, ...data });
   } catch (e) {
