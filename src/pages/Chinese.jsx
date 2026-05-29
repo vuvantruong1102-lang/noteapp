@@ -12,9 +12,9 @@ function speak(word) {
   } catch (e) {}
 }
 
-// Auto-fetch chỉ translate. explain và zdic lazy load — accordion bấm vào mới gọi.
+// lookup (tức thì, không AI) được auto-fetch. explain/zdic lazy (accordion).
 const NEEDS = {
-  translate: (v) => v && v.pinyin && v.han_viet,
+  lookup: (v) => v && v.in_cedict !== undefined,
 };
 
 export default function Chinese() {
@@ -32,6 +32,13 @@ export default function Chinese() {
   }
   useEffect(() => { loadHistory(); }, []);
 
+  function saveCache(term, next) {
+    supabase.from("zhnote_searches").upsert(
+      { user_id: user.id, word: term, pinyin: pinyin(term, { toneType: "symbol" }), data: next },
+      { onConflict: "user_id,word" }
+    ).then(() => loadHistory());
+  }
+
   async function lookup(w) {
     const term = (w || input).trim();
     if (!term) return;
@@ -44,6 +51,7 @@ export default function Chinese() {
     todo.forEach((k) => fetchSection(term, k));
   }
 
+  // Tra tức thì (lookup) hoặc accordion (explain/zdic)
   async function fetchSection(w, key) {
     const target = w || word;
     if (!target) return;
@@ -52,10 +60,7 @@ export default function Chinese() {
       const res = await api[key](target);
       setData((prev) => {
         const next = { ...prev, [key]: res };
-        supabase.from("zhnote_searches").upsert(
-          { user_id: user.id, word: target, pinyin: pinyin(target, { toneType: "symbol" }), data: next },
-          { onConflict: "user_id,word" }
-        ).then(() => loadHistory());
+        saveCache(target, next);
         return next;
       });
     } catch (e) {
@@ -65,12 +70,36 @@ export default function Chinese() {
     }
   }
 
+  // Dịch nghĩa sang tiếng Việt (AI) — on demand
+  async function translateVi() {
+    if (!word) return;
+    const lk = data.lookup || {};
+    setLoading((p) => ({ ...p, vi: true }));
+    try {
+      const res = await api.translatevi(word, lk.definition_en || "", lk.han_viet || "");
+      setData((prev) => {
+        const nextLookup = {
+          ...prev.lookup,
+          meaning_vi: res.meaning_vi,
+          han_viet: res.han_viet || prev.lookup?.han_viet || null,
+        };
+        const next = { ...prev, lookup: nextLookup };
+        saveCache(word, next);
+        return next;
+      });
+    } catch (e) {
+      setData((prev) => ({ ...prev, lookup: { ...prev.lookup, meaning_vi: "⚠ Lỗi dịch, thử lại." } }));
+    } finally {
+      setLoading((p) => ({ ...p, vi: false }));
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1 className="page-title">Tra Tiếng Trung</h1>
-          <p className="page-sub">Pinyin · Hán Việt · nghĩa tự hiện. Giải thích từ Baike / zdic chỉ tải khi bấm vào.</p>
+          <p className="page-sub">Phồn thể · Pinyin · Hán Việt · nghĩa Anh hiện tức thì. Nghĩa Việt & giải thích chỉ gọi AI khi bấm.</p>
         </div>
       </div>
 
@@ -105,9 +134,10 @@ export default function Chinese() {
                 </div>
               </div>
 
-              <Section title="Pinyin · Hán Việt · Nghĩa"
-                loading={loading.translate} onRefresh={() => fetchSection(word, "translate")}>
-                <TranslateBody d={data.translate} word={word} />
+              <Section title="Phồn thể · Pinyin · Hán Việt · Nghĩa"
+                loading={loading.lookup} onRefresh={() => fetchSection(word, "lookup")}>
+                <LookupBody d={data.lookup} word={word}
+                  onTranslateVi={translateVi} viLoading={loading.vi} />
               </Section>
 
               <Accordion title="Giải thích — Baidu Baike"
@@ -165,25 +195,19 @@ function Section({ title, loading, onRefresh, children }) {
   );
 }
 
-// Accordion: bấm vào header để mở/đóng. Lần mở đầu tiên (chưa có data) sẽ
-// trigger onLoad để fetch dữ liệu. Các lần mở sau hiển thị cache.
 function Accordion({ title, loaded, loading, onLoad, onRefresh, children }) {
   const [open, setOpen] = useState(false);
-
   function toggle() {
     const next = !open;
     setOpen(next);
     if (next && !loaded && !loading) onLoad?.();
   }
-
   return (
     <div className="card stack fade-in" style={{ overflow: "hidden" }}>
       <button onClick={toggle} className="row"
-        style={{
-          width: "100%", padding: "14px 18px", justifyContent: "space-between",
+        style={{ width: "100%", padding: "14px 18px", justifyContent: "space-between",
           background: "transparent", border: "none", cursor: "pointer",
-          borderBottom: open ? "1px solid var(--border)" : "none",
-        }}
+          borderBottom: open ? "1px solid var(--border)" : "none" }}
         onMouseEnter={(e) => e.currentTarget.style.background = "var(--hover)"}
         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
         <span className="field-label" style={{ margin: 0 }}>
@@ -193,18 +217,15 @@ function Accordion({ title, loaded, loading, onLoad, onRefresh, children }) {
         <div className="row" style={{ gap: 6 }}>
           {loading && <div className="spinner" />}
           {open && loaded && !loading && onRefresh && (
-            <span onClick={(e) => { e.stopPropagation(); onRefresh(); }}
-              title="Tải lại" style={refreshStyle}>↻</span>
+            <span onClick={(e) => { e.stopPropagation(); onRefresh(); }} title="Tải lại" style={refreshStyle}>↻</span>
           )}
         </div>
       </button>
       {open && (
         <div style={{ padding: "14px 18px" }}>
-          {loading && !loaded ? (
-            <div className="muted tiny">Đang tải, vui lòng đợi vài giây…</div>
-          ) : !loaded ? (
-            <div className="muted tiny">Chưa có dữ liệu. Bấm vào tiêu đề để tải.</div>
-          ) : children}
+          {loading && !loaded ? <div className="muted tiny">Đang tải, vui lòng đợi vài giây…</div>
+            : !loaded ? <div className="muted tiny">Chưa có dữ liệu. Bấm vào tiêu đề để tải.</div>
+            : children}
         </div>
       )}
     </div>
@@ -218,8 +239,8 @@ const refreshStyle = {
   border: "none", background: "transparent",
 };
 
-function TranslateBody({ d, word }) {
-  if (!d) return <div className="muted tiny">Đang chờ…</div>;
+function LookupBody({ d, word, onTranslateVi, viLoading }) {
+  if (!d) return <div className="muted tiny">Đang tra…</div>;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   return (
     <div className="stack">
@@ -228,12 +249,35 @@ function TranslateBody({ d, word }) {
           {d.traditional === word && <span className="tiny muted"> (giản thể và phồn thể giống nhau)</span>}
         </div>
       )}
-      <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{d.pinyin}</span></div>
+      <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{pinyin(word, { toneType: "symbol" })}</span></div>
       <div><b>Hán Việt:</b> {d.han_viet || "—"}</div>
-      <div><b>Nghĩa:</b> {d.meaning_vi}</div>
-      {d._sources && (d._sources.cedict || d._sources.wiktionary) && (
-        <div className="tiny muted" style={{ marginTop: 4 }}>
-          Nguồn: {d._sources.cedict && "CC-CEDICT"}{d._sources.cedict && d._sources.wiktionary && " · "}{d._sources.wiktionary && "Wiktionary"}
+
+      {d.definition_en && (
+        <div>
+          <b>Nghĩa (Anh):</b>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 2 }}>{d.definition_en}</div>
+        </div>
+      )}
+
+      {d.meaning_vi ? (
+        <div><b>Nghĩa (Việt):</b> {d.meaning_vi}</div>
+      ) : (
+        <div>
+          <button className="btn ghost sm" onClick={onTranslateVi} disabled={viLoading}
+            title="Gọi AI dịch sang tiếng Việt (~2 VND). Sau đó cache miễn phí.">
+            {viLoading ? "Đang dịch…" : (d.definition_en ? "▾ Dịch nghĩa sang tiếng Việt (AI)" : "▾ Lấy nghĩa tiếng Việt (AI)")}
+          </button>
+          {!d.in_cedict && (
+            <div className="tiny muted" style={{ marginTop: 6 }}>
+              Không có trong CC-CEDICT — AI sẽ tự tạo nghĩa khi bạn bấm.
+            </div>
+          )}
+        </div>
+      )}
+
+      {(d.in_cedict || d.han_viet) && (
+        <div className="tiny muted" style={{ marginTop: 2 }}>
+          Nguồn: {d.in_cedict && "CC-CEDICT"}{d.in_cedict && d.han_viet && " · "}{d.han_viet && "Wiktionary"}
         </div>
       )}
     </div>
@@ -257,10 +301,7 @@ function ExplainBody({ d }) {
       {d.etymology_found && d.etymology_vi ? (
         <div style={{ whiteSpace: "pre-wrap" }}>{d.etymology_vi}</div>
       ) : (
-        <div className="muted tiny">
-          Không tìm thấy mục nguồn gốc tự dạng trên Baike cho từ này
-          {d.source !== "baidu_baike" && " (hoặc không truy cập được Baike)"}.
-        </div>
+        <div className="muted tiny">Không tìm thấy mục nguồn gốc tự dạng trên Baike cho từ này.</div>
       )}
       {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem trên Baike →</a>}
     </div>
@@ -270,37 +311,25 @@ function ExplainBody({ d }) {
 function ZdicBody({ d }) {
   if (!d) return null;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
-  if (d.source === "fail") {
-    return <div className="muted tiny">{d.source_note || "Không lấy được zdic."}</div>;
-  }
+  if (d.source === "fail") return <div className="muted tiny">{d.source_note || "Không lấy được zdic."}</div>;
   const hasContent = d.basic_vi || d.etymology_vi || d.shuowen_vi;
+  const label = d.source === "wiktionary" ? "Nguồn: Wiktionary (zdic timeout)" : "Nguồn: zdic.net (汉典)";
   return (
     <div className="stack">
-      <span className="badge tieng_trung">Nguồn: zdic.net (汉典)</span>
-      {!hasContent && (
-        <div className="muted tiny">{d.source_note || "Trang zdic không có nội dung phù hợp."}</div>
-      )}
-      {d.basic_vi && (
-        <div>
-          <p className="field-label" style={{ margin: 0 }}>基本解释 — Nghĩa cơ bản</p>
-          <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.basic_vi}</div>
-        </div>
-      )}
-      {d.etymology_vi && (
-        <div>
-          <div className="divider" />
-          <p className="field-label" style={{ margin: 0 }}>{d.etymology_section || "字源字形"} — Nguồn gốc tự dạng</p>
-          <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.etymology_vi}</div>
-        </div>
-      )}
-      {d.shuowen_vi && (
-        <div>
-          <div className="divider" />
-          <p className="field-label" style={{ margin: 0 }}>说文解字 — Thuyết văn giải tự</p>
-          <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.shuowen_vi}</div>
-        </div>
-      )}
-      {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem trên zdic →</a>}
+      <span className="badge tieng_trung">{label}</span>
+      {!hasContent && <div className="muted tiny">{d.source_note || "Không có nội dung phù hợp."}</div>}
+      {d.basic_vi && (<div>
+        <p className="field-label" style={{ margin: 0 }}>基本解释 — Nghĩa cơ bản</p>
+        <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.basic_vi}</div></div>)}
+      {d.etymology_vi && (<div>
+        <div className="divider" />
+        <p className="field-label" style={{ margin: 0 }}>{d.etymology_section || "字源字形"} — Nguồn gốc tự dạng</p>
+        <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.etymology_vi}</div></div>)}
+      {d.shuowen_vi && (<div>
+        <div className="divider" />
+        <p className="field-label" style={{ margin: 0 }}>说文解字 — Thuyết văn giải tự</p>
+        <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{d.shuowen_vi}</div></div>)}
+      {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem nguồn →</a>}
     </div>
   );
 }
