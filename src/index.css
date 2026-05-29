@@ -350,3 +350,36 @@ a { color: var(--accent-700); text-decoration: none; }
 
 .zh-link { cursor: pointer; transition: color .12s; }
 .zh-link:hover { color: var(--accent-700); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ====================== DARK MODE ====================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:            #15161a;
+  --surface:       #1b1d22;
+  --surface-2:     #212329;
+  --text:          #e7e8ea;
+  --text-soft:     #aeb2ba;
+  --text-mute:     #80858e;
+  --border:        #2a2c33;
+  --border-strong: #3a3d45;
+  --hover:         #23252b;
+  --active:        #2b2e36;
+
+  --accent:        #1fbf48;
+  --accent-600:    #18a83e;
+  --accent-700:    #45d96a;   /* link / chữ nhấn: sáng hơn cho dễ đọc trên nền tối */
+  --accent-tint:   #16321d;
+
+  --cv:#6aa6ff; --cv-bg:#1b2740;
+  --cn:#f178b4; --cn-bg:#3a2030;
+  --ht:#dba14f; --ht-bg:#352a16;
+  --tt:#34d65f; --tt-bg:#16321d;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.4);
+}
+/* chip.active dùng var(--text) làm nền -> ở dark sẽ ngược màu, override lại */
+:root[data-theme="dark"] .chip.active {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+/* nút theme trong sidebar */
+.nav-item .theme-state { margin-left: auto; font-size: 11px; color: var(--text-mute); }
