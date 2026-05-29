@@ -1,35 +1,44 @@
-CẬP NHẬT v1.1 — VTNotes
-=======================
+HOTFIX v1.6.1 — Sửa Baike (trang đa nghĩa) + zdic (timeout)
+============================================================
 
->>> 1 FILE CẦN XOÁ KHỎI REPO (overwrite không tự xoá được):
-    src/components/TagsSidebar.jsx
-    -> Sidebar phụ ở giữa đã bị gỡ. Các thẻ/nhóm gộp vào sidebar bên trái.
+GHI ĐÈ 3 FILE:
+   api/explain.js     (xử lý trang đa nghĩa của Baike)
+   api/zdic.js        (giảm timeout + fallback Wiktionary)
+   vercel.json        (thêm maxDuration 30s)
 
->>> CÁC FILE GHI ĐÈ (cùng đường dẫn với repo):
+------------------------------------------------------------
+LỖI 1 — BAIKE TRANG ĐA NGHĨA (vd chữ 制)
+   Chữ có nhiều nghĩa -> Baike trả trang "请在下列义项中选择" (chọn
+   một nghĩa) thay vì trang chữ Hán thật. Scraper lấy nhầm thông báo
+   đó -> "là một từ đa nghĩa, không có 字源演变".
 
-  index.html                            (đổi title sang VTNotes)
-  package.json                          (đổi name sang vtnotes)
-  api/translate.js                      (THÊM trường han_viet — âm Hán-Việt)
-  api/explain.js                        (字源演变 chỉ dịch từ Baike, full text,
-                                         không nhờ AI bịa khi không có dữ liệu)
-  src/index.css                         (gỡ style sidebar giữa, thêm sidebar mới)
-  src/components/Sidebar.jsx            (sidebar trái gộp: Nhóm + Thẻ + Công cụ
-                                         + Sao lưu + Đăng xuất)
-  src/lib/backup.js                     (FILE MỚI — xuất JSON tải về)
-  src/pages/Login.jsx                   (đổi tên hiển thị VTNotes)
-  src/pages/Notes.jsx                   (lọc theo URL ?cat=… hoặc ?tag=…,
-                                         bỏ sidebar phụ)
-  src/pages/Chinese.jsx                 (bỏ 5 nút riêng; Tra cứu nạp song song
-                                         pinyin·hán việt·nghĩa·đồng nghĩa·ví dụ
-                                         ·giải thích Baike; Video tách riêng)
+   FIX: phát hiện trang đa nghĩa (marker 是一个多义词 / 请在下列义项),
+   tự lần theo link tới mục "汉语汉字" rồi fetch lại trang đó. Bump
+   version=4 nhưng explain giờ lazy-load nên cache cũ KHÔNG tự refetch.
+   -> Với chữ đã tra hỏng trước đó (như 制), bấm nút ↻ trên header
+      "Giải thích — Baidu Baike" để tải lại với code mới.
 
-GHI CHÚ
--------
-• KHÔNG cần chạy thêm migration SQL — schema không đổi.
-• Cache cũ trong zhnote_searches sẽ tự được làm mới khi mở từ cũ
-  (vì entry translate chưa có trường han_viet -> auto refetch).
-• Backup ra file JSON: bấm "💾 Sao lưu dữ liệu" ở đáy sidebar.
-  File tên dạng: vtnotes-backup-YYYY-MM-DD.json
-  Nội dung: tags, notes (kèm tag_ids và HTML), searches (kèm cache).
-  Khôi phục: có thể import lại bằng SQL hoặc script (mình có thể viết
-  thêm helper restore nếu bạn cần).
+------------------------------------------------------------
+LỖI 2 — ZDIC TIMEOUT
+   zdic.net host ở Trung Quốc, từ server Vercel (US/EU) round-trip
+   chậm, vượt 9s -> "Không lấy được zdic (timeout)".
+
+   FIX:
+   • Giảm timeout zdic còn 7.5s + thêm Accept-Encoding.
+   • Nếu zdic vẫn fail/rỗng -> FALLBACK sang Wiktionary "Glyph origin"
+     (CDN toàn cầu, nhanh & ổn định) rồi AI dịch sang tiếng Việt.
+   • Mục "Giải thích — zdic.net" giờ luôn có nội dung: nếu zdic được thì
+     hiện nguồn zdic (汉典), không thì hiện "Glyph origin (Wiktionary)".
+   • Badge nguồn trong kết quả cho biết data đến từ đâu.
+
+------------------------------------------------------------
+vercel.json — maxDuration 30s
+   explain có thể fetch Baike 2 lần (trang đa nghĩa), zdic có thể thử
+   cả zdic + Wiktionary. Cần nới giới hạn thời gian function từ mặc
+   định 10s lên 30s để không bị cắt giữa chừng. (Vercel Hobby hỗ trợ
+   tới 60s.) Đã merge với rewrites cũ, ghi đè nguyên file là được.
+
+------------------------------------------------------------
+DEPLOY: ghi đè 3 file, push, Vercel auto deploy. Không cần migration.
+   Test lại chữ 制: bấm ↻ ở header Baike (vì đã cache bản lỗi), và
+   mở header zdic xem có ra Wiktionary glyph origin không.
