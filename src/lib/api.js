@@ -12,8 +12,9 @@ async function post(path, body) {
 
 export const api = {
   translate: (word) => post("/api/translate", { word }),
-  explain: (word) => post("/api/explain", { word }),
-  examples: (word) => post("/api/examples", { word }),
-  synonyms: (word) => post("/api/synonyms", { word }),
-  sentence: (text) => post("/api/sentence", { text }),
+  explain:   (word) => post("/api/explain",   { word }),
+  zdic:      (word) => post("/api/zdic",      { word }),
+  examples:  (word) => post("/api/examples",  { word }),
+  synonyms:  (word) => post("/api/synonyms",  { word }),
+  sentence:  (text) => post("/api/sentence",  { text }),
 };
