@@ -1,8 +1,11 @@
-// POST { word } -> { word, source, source_url, intro_vi, etymology_vi, etymology_found }
-// QUY TẮC: 字源演变 CHỈ dịch từ nội dung Baike. Không có Baike / không có mục đó
-//          -> etymology_vi = "" và etymology_found = false. KHÔNG nhờ AI bịa.
+// POST { word } -> { word, source, source_url, intro_vi, etymology_vi, etymology_found, version }
+// FIX v2: "字源演变" thường xuất hiện 2 lần trên trang Baike (mục lục + tiêu đề
+// section thật). Trước đây code lấy lần xuất hiện đầu tiên (trong mục lục)
+// nên cắt đoạn rỗng. Bản này quét tất cả vị trí và lấy đoạn dài nhất.
 import * as cheerio from "cheerio";
 import { chatJSON, isChinese } from "./_lib/openai.js";
+
+const SCHEMA_VERSION = 2; // bump khi đổi cách bóc text -> cache cũ tự refetch
 
 const NEXT_SECTION_MARKERS = [
   "详细释义", "现代释义", "古籍释义", "字形书法",
@@ -27,20 +30,29 @@ function extractIntro(html) {
   return null;
 }
 
-// Lấy FULL đoạn quanh "字源演变" cho tới mục kế tiếp.
-// Cap an toàn 10k ký tự để tránh phình token bất ngờ.
+// FIX chính: quét toàn bộ vị trí "字源演变", lấy đoạn DÀI NHẤT.
 function extractEtymology(text) {
-  const idx = text.indexOf("字源演变");
-  if (idx === -1) return null;
-  const start = idx + "字源演变".length;
-  let end = text.length;
-  for (const m of NEXT_SECTION_MARKERS) {
-    const mi = text.indexOf(m, start);
-    if (mi !== -1 && mi < end) end = mi;
+  const matches = [];
+  let pos = 0;
+  while (true) {
+    const idx = text.indexOf("字源演变", pos);
+    if (idx === -1) break;
+    const start = idx + "字源演变".length;
+    let end = text.length;
+    for (const m of NEXT_SECTION_MARKERS) {
+      const mi = text.indexOf(m, start);
+      if (mi !== -1 && mi < end) end = mi;
+    }
+    end = Math.min(end, start + 10000);
+    let slice = text.slice(start, end).trim();
+    // Bỏ nhãn widget "播报" "编辑" còn dính ở đầu (nút trên Baike sau strip HTML)
+    slice = slice.replace(/^(?:\s|播报|编辑)+/, "").trim();
+    matches.push(slice);
+    pos = idx + 1;
   }
-  end = Math.min(end, start + 10000);
-  const slice = text.slice(start, end).trim();
-  return slice.length > 20 ? slice : null;
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => b.length - a.length);
+  return matches[0].length > 50 ? matches[0] : null;
 }
 
 async function fetchBaike(word) {
@@ -49,8 +61,7 @@ async function fetchBaike(word) {
   const timer = setTimeout(() => controller.abort(), 9000);
   try {
     const r = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
+      signal: controller.signal, redirect: "follow",
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
         "Accept-Language": "zh-CN,zh;q=0.9",
@@ -80,46 +91,50 @@ export default async function handler(req, res) {
     let introZh = null, etymologyZh = null;
     if (baike.ok) {
       const text = htmlToText(baike.html);
-      introZh = extractIntro(baike.html) || text.slice(0, 600);
+      // Lấy nhiều text hơn cho intro để AI có đủ ngữ cảnh sàng lọc.
+      introZh = extractIntro(baike.html) || text.slice(0, 1500);
       etymologyZh = extractEtymology(text);
     }
 
-    // Trường hợp Baike OK + có 字源演变: dịch FULL cả 2 đoạn từ Baike.
-    // Trường hợp Baike OK nhưng không có 字源演变: chỉ dịch mở đầu, etymology để trống.
-    // Trường hợp Baike fail: intro do AI giải thích sơ lược, etymology để trống.
-    let payload;
     if (baike.ok && etymologyZh) {
-      payload = await chatJSON({
+      const payload = await chatJSON({
         temperature: 0.2,
         system: "Bạn là chuyên gia từ nguyên Hán ngữ. Dịch tiếng Việt tự nhiên, đầy đủ, không tự bịa thêm. Chỉ trả JSON.",
         user:
-          `Nội dung trích từ Baidu Baike cho chữ "${word}".\n` +
-          `[MỞ ĐẦU]\n${introZh}\n\n[字源演变]\n${etymologyZh}\n\n` +
-          `Dịch ĐẦY ĐỦ sang tiếng Việt, giữ trọn nội dung gốc, không rút gọn, không bịa.\n` +
-          `JSON: {"intro_vi":"dịch phần mở đầu","etymology_vi":"dịch full mục 字源演变"}`,
+          `Văn bản trích từ Baidu Baike cho chữ "${word}".\n\n` +
+          `[VĂN BẢN ĐẦU TRANG — có thể chứa mục lục và bảng thông tin cơ bản]\n${introZh}\n\n` +
+          `[MỤC 字源演变]\n${etymologyZh}\n\n` +
+          `Yêu cầu:\n` +
+          `1. Từ phần đầu trang, BỎ QUA mục lục (TOC) và bảng thông tin cơ bản ` +
+          `(中文名/拼音/部首/笔画 v.v.), chỉ trích lấy phần mô tả/định nghĩa chính của từ, ` +
+          `dịch ĐẦY ĐỦ sang tiếng Việt.\n` +
+          `2. Dịch ĐẦY ĐỦ mục 字源演变, giữ trọn nội dung, không rút gọn, không bịa thêm.\n` +
+          `JSON: {"intro_vi":"...","etymology_vi":"..."}`,
       });
       return res.status(200).json({
         word, source: "baidu_baike", source_url: baike.url,
         intro_vi: payload.intro_vi || "", etymology_vi: payload.etymology_vi || "",
-        etymology_found: true,
+        etymology_found: true, version: SCHEMA_VERSION,
       });
     }
 
     if (baike.ok && !etymologyZh) {
-      payload = await chatJSON({
+      const payload = await chatJSON({
         temperature: 0.2,
-        system: "Dịch sang tiếng Việt tự nhiên. Chỉ trả JSON.",
-        user: `Dịch phần mở đầu sau từ Baike cho chữ "${word}":\n${introZh}\n\nJSON: {"intro_vi":"dịch tiếng Việt"}`,
+        system: "Dịch sang tiếng Việt tự nhiên, bỏ qua mục lục và bảng thông tin. Chỉ trả JSON.",
+        user: `Văn bản đầu trang Baike cho chữ "${word}":\n${introZh}\n\n` +
+          `Bỏ qua mục lục và bảng thông tin cơ bản, chỉ dịch phần mô tả chính sang tiếng Việt.\n` +
+          `JSON: {"intro_vi":"..."}`,
       });
       return res.status(200).json({
         word, source: "baidu_baike", source_url: baike.url,
         intro_vi: payload.intro_vi || "", etymology_vi: "",
-        etymology_found: false,
+        etymology_found: false, version: SCHEMA_VERSION,
       });
     }
 
-    // Baike thất bại hoàn toàn — chỉ giải thích sơ lược, etymology để trống.
-    payload = await chatJSON({
+    // Baike fail -> AI giải thích sơ lược, etymology để trống
+    const payload = await chatJSON({
       temperature: 0.3,
       system: "Bạn giải thích chữ Hán cho người Việt học. Chỉ trả JSON.",
       user: `Giải thích nghĩa và cách dùng chữ "${word}" bằng tiếng Việt ngắn gọn. ` +
@@ -129,7 +144,7 @@ export default async function handler(req, res) {
       word, source: "ai_fallback", source_url: null,
       source_note: `Không lấy được Baike (${baike.reason}).`,
       intro_vi: payload.intro_vi || "", etymology_vi: "",
-      etymology_found: false,
+      etymology_found: false, version: SCHEMA_VERSION,
     });
   } catch (e) {
     console.error("explain", e);
