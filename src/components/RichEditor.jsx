@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const FONTS = [
   { label: "Font mặc định",   value: "" },
@@ -8,101 +8,34 @@ const FONTS = [
   { label: "Monospace",       value: "ui-monospace, SFMono-Regular, Menlo, monospace" },
 ];
 
+const SIZES = [
+  { label: "Cỡ chữ",      value: "" },
+  { label: "Nhỏ",         value: "2" },
+  { label: "Bình thường", value: "3" },
+  { label: "Lớn",         value: "5" },
+  { label: "Rất lớn",     value: "6" },
+  { label: "Tiêu đề",     value: "7" },
+];
+
 export default function RichEditor({ value, onChange, placeholder }) {
   const ref = useRef(null);
-  const savedRangeRef = useRef(null);
-  const [sizeInput, setSizeInput] = useState("");
 
+  // Đặt innerHTML khi value đến từ bên ngoài (load), không phải khi gõ.
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (value || "")) {
       ref.current.innerHTML = value || "";
     }
   }, [value]);
 
-  useEffect(() => {
-    function onSelectionChange() {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0 && ref.current && ref.current.contains(sel.anchorNode)) {
-        savedRangeRef.current = sel.getRangeAt(0).cloneRange();
-      }
-    }
-    document.addEventListener("selectionchange", onSelectionChange);
-    return () => document.removeEventListener("selectionchange", onSelectionChange);
-  }, []);
-
-  // Đảm bảo selection nằm TRONG editor; nếu không có sẵn thì đặt con trỏ ở cuối
-  function ensureSelectionInEditor() {
-    ref.current?.focus();
-    let sel = window.getSelection();
-    if (savedRangeRef.current) {
-      try { sel.removeAllRanges(); sel.addRange(savedRangeRef.current); } catch (e) {}
-    }
-    sel = window.getSelection();
-    if (!sel.rangeCount || !ref.current.contains(sel.anchorNode)) {
-      const r = document.createRange();
-      r.selectNodeContents(ref.current);
-      r.collapse(false); // cuối editor
-      sel.removeAllRanges();
-      sel.addRange(r);
-    }
-    return window.getSelection();
-  }
-
   function exec(cmd, val) {
-    ensureSelectionInEditor();
+    ref.current?.focus();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
     document.execCommand(cmd, false, val);
     onChange?.(ref.current.innerHTML);
   }
 
-  // Bọc đoạn chọn vào <span style="font-size: Npx">. Hai trường hợp:
-  //   - Có chọn text: surroundContents (hoặc extract+wrap nếu range xuyên element)
-  //   - Không có chọn (con trỏ rỗng / editor trống): chèn span với zero-width
-  //     space, đặt con trỏ BÊN TRONG span -> gõ tiếp sẽ vào span với cỡ mới.
-  function applyFontSize(px) {
-    px = parseInt(px);
-    if (!px || px < 8 || px > 72) return;
-    if (!ref.current) return;
-
-    const sel = ensureSelectionInEditor();
-    const range = sel.getRangeAt(0);
-    const span = document.createElement("span");
-    span.style.fontSize = px + "px";
-
-    if (sel.isCollapsed) {
-      // Chưa chọn text -> mode "set cỡ chữ rồi gõ tiếp"
-      const zws = document.createTextNode("\u200B"); // zero-width space
-      span.appendChild(zws);
-      range.insertNode(span);
-      const newRange = document.createRange();
-      newRange.setStart(zws, 1);
-      newRange.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-      savedRangeRef.current = newRange.cloneRange();
-    } else {
-      // Có chọn text -> bọc lại
-      try {
-        range.surroundContents(span);
-      } catch (e) {
-        const fragment = range.extractContents();
-        span.appendChild(fragment);
-        range.insertNode(span);
-      }
-      const newRange = document.createRange();
-      newRange.selectNodeContents(span);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-      savedRangeRef.current = newRange.cloneRange();
-    }
-    onChange?.(ref.current.innerHTML);
-  }
-
-  function commitSize() {
-    if (sizeInput) applyFontSize(sizeInput);
-    setSizeInput("");
-  }
-
+  // Mọi nút trên toolbar dùng onMouseDown + preventDefault để không cướp focus
+  // khỏi vùng soạn thảo (nếu mất focus thì execCommand áp dụng sai vị trí).
   const tbBtn = (label, cmd, val, title) => (
     <button title={title} onMouseDown={(e) => { e.preventDefault(); exec(cmd, val); }}>
       {label}
@@ -111,27 +44,13 @@ export default function RichEditor({ value, onChange, placeholder }) {
 
   return (
     <>
-      <div className="rich-toolbar" onMouseDown={(e) => {
-        if (e.target.tagName !== "SELECT" && e.target.tagName !== "INPUT") e.preventDefault();
-      }}>
+      <div className="rich-toolbar" onMouseDown={(e) => { if (e.target.tagName !== "SELECT") e.preventDefault(); }}>
         <select defaultValue="" onChange={(e) => { exec("fontName", e.target.value); e.target.value = ""; }}>
           {FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
         </select>
-
-        <span className="font-size-box" title="Nhập cỡ (8-72) rồi Enter. Nếu chưa chọn text, cỡ sẽ áp dụng cho phần gõ tiếp theo.">
-          <input
-            type="number" min="8" max="72" step="1"
-            className="font-size-input" placeholder="cỡ"
-            value={sizeInput}
-            onChange={(e) => setSizeInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); commitSize(); }
-            }}
-            onBlur={() => { if (sizeInput) commitSize(); }}
-          />
-          <span className="font-size-unit">px</span>
-        </span>
-
+        <select defaultValue="" onChange={(e) => { exec("fontSize", e.target.value); e.target.value = ""; }}>
+          {SIZES.map(s => <option key={s.label} value={s.value}>{s.label}</option>)}
+        </select>
         <span className="tb-sep" />
         {tbBtn(<b>B</b>,  "bold",          null, "Đậm (Ctrl+B)")}
         {tbBtn(<i>I</i>,  "italic",        null, "Nghiêng (Ctrl+I)")}
