@@ -420,3 +420,7 @@ a { color: var(--accent-700); text-decoration: none; }
   .app.nav-hidden .main { padding-left: 0; padding-top: 44px; }
   .nav-show { top: 8px; left: 10px; }
 }
+
+/* Chổi quét định dạng */
+.rich-toolbar button.painter-on { background: var(--accent-tint); color: var(--accent-700); }
+.rich-editor.painter-on { cursor: copy; }
