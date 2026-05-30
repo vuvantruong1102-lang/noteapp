@@ -1,4 +1,4 @@
-# Hán Notes — Ghi chú & học tiếng Trung
+# Hán Notes — My notes
 
 App ghi chú cá nhân kèm bộ công cụ học tiếng Trung. Giao diện sáng, tối giản,
 tone xanh Evernote, tối ưu cho mobile.

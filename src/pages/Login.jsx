@@ -32,7 +32,7 @@ export default function Login() {
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div className="brand-mark" style={{ width: 44, height: 44, fontSize: 18, margin: "0 auto" }}>V</div>
           <h1 className="page-title" style={{ marginTop: 14, fontSize: 24 }}>VTNotes</h1>
-          <p className="page-sub" style={{ marginTop: 6 }}>Ghi chú & học tiếng Trung</p>
+          <p className="page-sub" style={{ marginTop: 6 }}>My notes</p>
         </div>
 
         <div className="card card-pad stack">

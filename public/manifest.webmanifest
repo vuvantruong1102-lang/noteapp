@@ -1,7 +1,7 @@
 {
   "name": "VTNotes",
   "short_name": "VTNotes",
-  "description": "Ghi chú & học tiếng Trung",
+  "description": "My notes",
   "lang": "vi",
   "start_url": "/",
   "scope": "/",
