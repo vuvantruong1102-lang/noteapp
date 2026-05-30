@@ -13,6 +13,9 @@ const IconBook = () => (
 const IconType = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
 );
+const IconCheck = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><path d="M9 11l3 3L20 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+);
 const IconGlobe = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
 );
@@ -41,6 +44,7 @@ const TOOLS = [
   { to: "/zh",           label: "Tra Tiếng Trung",  Icon: IconBook },
   { to: "/translate",    label: "Dịch tiếng Trung", Icon: IconType },
   { to: "/translate-en", label: "Dịch tiếng Anh",   Icon: IconGlobe },
+  { to: "/todo",         label: "Việc cần làm",     Icon: IconCheck },
 ];
 
 export default function Sidebar({ onHide }) {
