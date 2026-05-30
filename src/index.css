@@ -424,3 +424,30 @@ a { color: var(--accent-700); text-decoration: none; }
 /* Chổi quét định dạng */
 .rich-toolbar button.painter-on { background: var(--accent-tint); color: var(--accent-700); }
 .rich-editor.painter-on { cursor: copy; }
+
+/* ====================== TO-DO v2 (mỗi dòng 1 ngày, accordion) ====================== */
+.todo-page { max-width: 880px; }
+.todo-days { display: flex; flex-direction: column; gap: 10px; }
+.todo-day { overflow: hidden; }
+.todo-day.is-today { border-color: var(--accent); }
+.todo-day-head { width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; background: transparent; border: none; cursor: pointer; text-align: left; }
+.todo-day-head:hover { background: var(--hover); }
+.todo-day-caret { width: 16px; color: var(--accent-700); font-size: 13px; }
+.todo-day-name { flex: 1; font-weight: 600; font-size: 16px; }
+.todo-day.is-today .todo-day-name { color: var(--accent-700); }
+.todo-day-count { font-size: 13px; color: var(--text-mute); }
+.todo-day-body { padding: 6px 20px 18px; border-top: 1px solid var(--border); }
+.todo-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.todo-row:last-of-type { border-bottom: none; }
+.todo-check { width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%;
+  border: 2px solid var(--border-strong); background: transparent; color: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.todo-check.on { background: var(--accent); border-color: var(--accent); }
+.todo-title { flex: 1; cursor: text; font-size: 15.5px; word-break: break-word; }
+.todo-row.done .todo-title { text-decoration: line-through; color: var(--text-mute); }
+.todo-edit { flex: 1; padding: 6px 10px; font-size: 15px; }
+.todo-del { color: var(--text-mute); font-size: 20px; line-height: 1; background: transparent; border: none; cursor: pointer; opacity: .5; }
+.todo-del:hover { color: #c2185b; opacity: 1; }
+.todo-add { display: flex; gap: 8px; margin-top: 14px; }
+.todo-add .input { flex: 1; }
