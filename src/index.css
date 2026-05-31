@@ -460,3 +460,12 @@ a { color: var(--accent-700); text-decoration: none; }
 .todo-done-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 20px;
   background: transparent; border: none; cursor: pointer; text-align: left; font-weight: 600; font-size: 15px; }
 .todo-done-head:hover { background: var(--hover); }
+
+/* ====================== TO-DO v4 (việc đã hoàn thành nhóm theo ngày) ====================== */
+.todo-cwrap { padding-left: 12px; padding-right: 12px; }
+.todo-cgroup + .todo-cgroup { border-top: 1px solid var(--border); }
+.todo-cday-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 8px;
+  background: transparent; border: none; cursor: pointer; text-align: left; font-size: 14px; color: var(--text-soft); }
+.todo-cday-head:hover { background: var(--hover); border-radius: 8px; }
+.todo-cday-body { padding: 2px 8px 8px 28px; }
+.todo-cday-body .todo-row { padding: 8px 0; }
