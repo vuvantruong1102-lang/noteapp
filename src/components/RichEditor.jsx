@@ -25,10 +25,33 @@ export default function RichEditor({ value, onChange, placeholder }) {
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (value || "")) {
       ref.current.innerHTML = value || "";
+      renumberOrderedLists();
     }
   }, [value]);
 
-  function sync() { onChange?.(ref.current.innerHTML); }
+  // Đánh số liên tục cho các danh sách số ở cấp ngoài cùng (mỗi dòng là 1 <ol>
+  // riêng nên mặc định đều bắt đầu từ 1; ta gán thuộc tính start nối tiếp nhau).
+  // Danh sách gạch đầu dòng (mục con) KHÔNG làm gián đoạn; gặp đoạn văn thì đánh lại từ 1.
+  function renumberOrderedLists() {
+    const root = ref.current; if (!root) return;
+    let count = 0;
+    for (const ch of Array.from(root.children)) {
+      if (ch.tagName === "OL") {
+        const start = count + 1;
+        if (ch.getAttribute("start") !== String(start)) ch.setAttribute("start", String(start));
+        count += ch.querySelectorAll(":scope > li").length;
+      } else if (ch.tagName === "UL") {
+        /* mục con gạch đầu dòng -> giữ mạch số */
+      } else {
+        count = 0; /* đoạn văn/khối khác -> đánh số lại từ 1 */
+      }
+    }
+  }
+
+  function sync() {
+    renumberOrderedLists();
+    onChange?.(ref.current.innerHTML);
+  }
 
   function exec(cmd, val) {
     ref.current?.focus();
