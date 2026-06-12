@@ -25,6 +25,8 @@ export default function Chinese() {
   const [data, setData] = useState({});
   const [loading, setLoading] = useState({});
   const [history, setHistory] = useState([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyFilter, setHistoryFilter] = useState("");
   const [hanVietFn, setHanVietFn] = useState(null);
   useEffect(() => { import("../lib/hanviet.js").then((m) => setHanVietFn(() => m.hanVietOf)); }, []);
 
@@ -37,9 +39,11 @@ export default function Chinese() {
   }, [wParam]);
 
   async function loadHistory() {
-    const { data: rows } = await supabase.from("zhnote_searches")
-      .select("word,pinyin,updated_at").order("updated_at", { ascending: false }).limit(40);
+    const { data: rows, count } = await supabase.from("zhnote_searches")
+      .select("word,pinyin,updated_at", { count: "exact" })
+      .order("updated_at", { ascending: false });
     setHistory(rows || []);
+    setHistoryTotal(count ?? (rows ? rows.length : 0));
   }
   useEffect(() => { loadHistory(); }, []);
 
@@ -184,19 +188,36 @@ export default function Chinese() {
         </div>
 
         <aside className="zh-aside">
-          <p className="field-label">🕘 Lịch sử tra cứu</p>
-          {history.length === 0 ? (
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+            <p className="field-label" style={{ margin: 0 }}>🕘 Lịch sử tra cứu</p>
+            <span className="tiny muted">Đã tra {historyTotal} từ</span>
+          </div>
+          {historyTotal === 0 ? (
             <div className="card card-pad tiny muted">Chưa có từ nào.</div>
           ) : (
-            <div className="card">
-              {history.map((h, i) => (
-                <div key={h.word} onClick={() => lookup(h.word)} className="row"
-                  style={{ padding: "11px 14px", cursor: "pointer", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                  <span className="zh" style={{ fontSize: 18 }}>{h.word}</span>
-                  <span className="tiny" style={{ color: "var(--accent-700)" }}>{h.pinyin}</span>
-                </div>
-              ))}
-            </div>
+            <>
+              <input className="input" style={{ marginBottom: 8, padding: "7px 10px", fontSize: 13 }}
+                placeholder="Lọc trong từ đã tra…" value={historyFilter}
+                onChange={(e) => setHistoryFilter(e.target.value)} />
+              {(() => {
+                const f = historyFilter.trim().toLowerCase();
+                const list = f
+                  ? history.filter((h) => h.word.includes(historyFilter.trim()) || (h.pinyin || "").toLowerCase().includes(f))
+                  : history;
+                if (list.length === 0) return <div className="card card-pad tiny muted">Không có từ nào khớp.</div>;
+                return (
+                  <div className="card zh-history">
+                    {list.map((h, i) => (
+                      <div key={h.word} onClick={() => lookup(h.word)} className="row"
+                        style={{ padding: "11px 14px", cursor: "pointer", borderTop: i ? "1px solid var(--border)" : "none" }}>
+                        <span className="zh" style={{ fontSize: 18 }}>{h.word}</span>
+                        <span className="tiny" style={{ color: "var(--accent-700)" }}>{h.pinyin}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
           )}
         </aside>
       </div>
