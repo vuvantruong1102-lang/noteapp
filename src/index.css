@@ -472,3 +472,6 @@ a { color: var(--accent-700); text-decoration: none; }
 
 /* Sticky toolbar: bóng nhẹ khi cuộn */
 .rich-toolbar { box-shadow: 0 1px 0 var(--border); }
+
+/* Lịch sử tra cứu: cuộn khi danh sách dài */
+.zh-history { max-height: 72vh; overflow-y: auto; }
