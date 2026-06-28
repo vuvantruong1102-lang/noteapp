@@ -6,7 +6,7 @@
 import * as cheerio from "cheerio";
 import { chatJSON, isChinese } from "./_lib/openai.js";
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const ETYMOLOGY_HEADINGS = [
   "字源演变", "字源解说", "文字源流", "字形演变", "词源演变", "词源",
@@ -141,55 +141,41 @@ export default async function handler(req, res) {
       etyResult = extractEtymology(text);
     }
 
-    if (baike.ok && etyResult) {
-      const payload = await chatJSON({
-        temperature: 0.2,
-        system: "Bạn là chuyên gia từ nguyên Hán ngữ. Dịch tiếng Việt tự nhiên, đầy đủ, không tự bịa thêm. Chỉ trả JSON.",
-        user:
-          `Văn bản trích từ Baidu Baike cho chữ "${word}".\n\n` +
-          `[VĂN BẢN ĐẦU TRANG — có thể chứa mục lục và bảng thông tin cơ bản]\n${introZh}\n\n` +
-          `[MỤC ${etyResult.heading} — nguồn gốc/diễn biến tự dạng]\n${etyResult.text}\n\n` +
-          `Yêu cầu:\n` +
-          `1. Từ phần đầu trang, BỎ QUA mục lục (TOC) và bảng thông tin cơ bản, ` +
-          `chỉ trích phần mô tả/định nghĩa chính của từ, dịch ĐẦY ĐỦ sang tiếng Việt.\n` +
-          `2. Dịch ĐẦY ĐỦ mục ${etyResult.heading}, giữ trọn nội dung, không rút gọn, không bịa.\n` +
-          `JSON: {"intro_vi":"...","etymology_vi":"..."}`,
-      });
-      return res.status(200).json({
-        word, source: "baidu_baike", source_url: baike.url,
-        intro_vi: payload.intro_vi || "", etymology_vi: payload.etymology_vi || "",
-        etymology_found: true, etymology_section: etyResult.heading,
-        version: SCHEMA_VERSION,
-      });
-    }
-
-    if (baike.ok && !etyResult) {
-      const payload = await chatJSON({
-        temperature: 0.2,
-        system: "Dịch sang tiếng Việt tự nhiên, bỏ qua mục lục và bảng thông tin. Chỉ trả JSON.",
-        user: `Văn bản đầu trang Baike cho chữ "${word}":\n${introZh}\n\n` +
-          `Bỏ qua mục lục và bảng thông tin cơ bản, chỉ dịch phần mô tả chính sang tiếng Việt.\n` +
-          `JSON: {"intro_vi":"..."}`,
-      });
-      return res.status(200).json({
-        word, source: "baidu_baike", source_url: baike.url,
-        intro_vi: payload.intro_vi || "", etymology_vi: "",
-        etymology_found: false, etymology_section: null,
-        version: SCHEMA_VERSION,
-      });
+    // Một lần gọi AI: LUÔN có "ai_explain_vi" (AI tự giải thích, không phụ thuộc Baike);
+    // nếu lấy được Baike thì kèm dịch intro_vi (+ etymology_vi nếu có mục từ nguyên).
+    let user =
+      `Chữ/từ tiếng Trung: "${word}".\n\n` +
+      `(1) Hãy TỰ giải thích nghĩa và cách dùng của "${word}" bằng tiếng Việt: nghĩa chính, ` +
+      `sắc thái, và nếu cần thì ví dụ ngắn. Viết tự nhiên, súc tích nhưng đủ ý. Đưa vào trường "ai_explain_vi".\n`;
+    if (baike.ok && (introZh || etyResult)) {
+      if (introZh) user += `\n[VĂN BẢN ĐẦU TRANG BAIKE — có thể chứa mục lục và bảng thông tin]\n${introZh}\n`;
+      if (etyResult) user += `\n[MỤC ${etyResult.heading} — nguồn gốc/diễn biến tự dạng]\n${etyResult.text}\n`;
+      user += `\n(2) Từ phần đầu trang Baike, BỎ QUA mục lục và bảng thông tin, chỉ dịch phần ` +
+        `mô tả/định nghĩa chính sang tiếng Việt -> "intro_vi". Không bịa nội dung Baike.\n`;
+      if (etyResult)
+        user += `(3) Dịch ĐẦY ĐỦ mục ${etyResult.heading} sang tiếng Việt, giữ trọn nội dung, không rút gọn, không bịa -> "etymology_vi".\n`;
+      user += `\nJSON: {"ai_explain_vi":"...","intro_vi":"...","etymology_vi":"..."}`;
+    } else {
+      user += `\nJSON: {"ai_explain_vi":"..."}`;
     }
 
     const payload = await chatJSON({
-      temperature: 0.3,
-      system: "Bạn giải thích chữ Hán cho người Việt học. Chỉ trả JSON.",
-      user: `Giải thích nghĩa và cách dùng chữ "${word}" bằng tiếng Việt ngắn gọn. ` +
-        `JSON: {"intro_vi":"giải thích"}`,
+      temperature: 0.2,
+      system: "Bạn là chuyên gia Hán ngữ, giải thích cho người Việt học. Dịch/diễn đạt tiếng Việt tự nhiên, " +
+        "không bịa nội dung trích từ Baike. Chỉ trả JSON.",
+      user,
     });
+
     return res.status(200).json({
-      word, source: "ai_fallback", source_url: null,
-      source_note: `Không lấy được Baike (${baike.reason}).`,
-      intro_vi: payload.intro_vi || "", etymology_vi: "",
-      etymology_found: false, etymology_section: null,
+      word,
+      source: baike.ok ? "baidu_baike" : "ai_only",
+      source_url: baike.ok ? baike.url : null,
+      source_note: baike.ok ? null : `Không lấy được Baike (${baike.reason}).`,
+      ai_explain_vi: payload.ai_explain_vi || "",
+      intro_vi: payload.intro_vi || "",
+      etymology_vi: payload.etymology_vi || "",
+      etymology_found: !!(etyResult && payload.etymology_vi),
+      etymology_section: etyResult ? etyResult.heading : null,
       version: SCHEMA_VERSION,
     });
   } catch (e) {
