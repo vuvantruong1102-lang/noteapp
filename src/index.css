@@ -475,3 +475,7 @@ a { color: var(--accent-700); text-decoration: none; }
 
 /* Lịch sử tra cứu: cuộn khi danh sách dài */
 .zh-history { max-height: 72vh; overflow-y: auto; }
+
+/* Hàng lịch sử tra cứu (kèm ngày) */
+.zh-hist-row { padding: 11px 14px; cursor: pointer; }
+.zh-hist-row:hover { background: var(--hover); }
