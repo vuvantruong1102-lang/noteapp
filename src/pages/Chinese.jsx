@@ -171,7 +171,7 @@ export default function Chinese() {
               </Accordion>
 
               <Accordion title="Giải thích — Baidu Baike"
-                loaded={!!data.explain} loading={loading.explain}
+                loaded={!!data.explain && (data.explain.__error || (data.explain.version || 0) >= 5)} loading={loading.explain}
                 onLoad={() => fetchSection(word, "explain")}
                 onRefresh={() => fetchSection(word, "explain")}>
                 <ExplainBody d={data.explain} />
@@ -208,10 +208,17 @@ export default function Chinese() {
                 return (
                   <div className="card zh-history">
                     {list.map((h, i) => (
-                      <div key={h.word} onClick={() => lookup(h.word)} className="row"
-                        style={{ padding: "11px 14px", cursor: "pointer", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                        <span className="zh" style={{ fontSize: 18 }}>{h.word}</span>
-                        <span className="tiny" style={{ color: "var(--accent-700)" }}>{h.pinyin}</span>
+                      <div key={h.word} onClick={() => lookup(h.word)} className="zh-hist-row"
+                        style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
+                        <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+                          <span className="zh" style={{ fontSize: 18 }}>{h.word}</span>
+                          <span className="tiny" style={{ color: "var(--accent-700)" }}>{h.pinyin}</span>
+                        </div>
+                        {h.updated_at && (
+                          <div className="tiny muted" style={{ marginTop: 2 }}>
+                            🕘 {new Date(h.updated_at).toLocaleDateString("vi-VN")}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -373,20 +380,31 @@ function ExplainBody({ d }) {
   if (!d) return null;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
   const heading = d.etymology_section || "字源演变";
+  const hasBaike = d.source === "baidu_baike";
   return (
     <div className="stack">
-      {d.source === "baidu_baike" ? (
-        <span className="badge tieng_trung">Nguồn: Baidu Baike</span>
-      ) : (
-        <span className="badge hoc_tap">Không lấy được Baike</span>
-      )}
-      {d.intro_vi && <div>{d.intro_vi}</div>}
+      {/* AI giải thích — luôn hiển thị */}
+      <p className="field-label" style={{ margin: 0 }}>🤖 AI giải thích</p>
+      {d.ai_explain_vi
+        ? <div style={{ whiteSpace: "pre-wrap" }}>{d.ai_explain_vi}</div>
+        : <div className="muted tiny">Chưa có giải thích từ AI.</div>}
+
       <div className="divider" />
-      <p className="field-label" style={{ margin: 0 }}>{heading} — Nguồn gốc tự dạng</p>
-      {d.etymology_found && d.etymology_vi ? (
-        <div style={{ whiteSpace: "pre-wrap" }}>{d.etymology_vi}</div>
-      ) : (
-        <div className="muted tiny">Không tìm thấy mục nguồn gốc tự dạng trên Baike cho từ này.</div>
+
+      {/* Nội dung Baidu Baike */}
+      {hasBaike
+        ? <span className="badge tieng_trung">Nguồn: Baidu Baike</span>
+        : <span className="badge hoc_tap">Không lấy được Baike</span>}
+      {hasBaike && d.intro_vi && <div>{d.intro_vi}</div>}
+      {hasBaike && (
+        <>
+          <p className="field-label" style={{ margin: 0 }}>{heading} — Nguồn gốc tự dạng</p>
+          {d.etymology_found && d.etymology_vi ? (
+            <div style={{ whiteSpace: "pre-wrap" }}>{d.etymology_vi}</div>
+          ) : (
+            <div className="muted tiny">Không tìm thấy mục nguồn gốc tự dạng trên Baike cho từ này.</div>
+          )}
+        </>
       )}
       {d.source_url && <a className="tiny" href={d.source_url} target="_blank" rel="noreferrer">Xem trên Baike →</a>}
     </div>
