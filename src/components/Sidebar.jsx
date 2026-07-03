@@ -19,6 +19,12 @@ const IconCheck = () => (
 const IconGlobe = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
 );
+const IconClock = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+);
+const IconGrid = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+);
 const IconMoon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" {...stroke}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
 );
@@ -45,6 +51,8 @@ const TOOLS = [
   { to: "/translate",    label: "Dịch tiếng Trung", Icon: IconType },
   { to: "/translate-en", label: "Dịch tiếng Anh",   Icon: IconGlobe },
   { to: "/todo",         label: "Việc cần làm",     Icon: IconCheck },
+  { to: "/history",      label: "Lịch sử tra cứu",  Icon: IconClock },
+  { to: "/hsk",          label: "Từ vựng HSK",      Icon: IconGrid },
 ];
 
 export default function Sidebar({ onHide }) {
