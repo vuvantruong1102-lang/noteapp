@@ -4,6 +4,7 @@ import { pinyin } from "pinyin-pro";
 import { supabase } from "../lib/supabase.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
+import AskBox from "../components/AskBox.jsx";
 
 function speak(word) {
   try {
@@ -183,6 +184,10 @@ export default function Chinese() {
                 onRefresh={() => fetchSection(word, "zdic")}>
                 <ZdicBody d={data.zdic} />
               </Accordion>
+
+              <AskBox
+                context={`Từ tiếng Trung: "${word}" (pinyin ${pinyin(word, { toneType: "symbol" })}${data.lookup?.han_viet ? `, Hán Việt ${data.lookup.han_viet}` : ""}${data.lookup?.meaning_vi ? `, nghĩa: ${data.lookup.meaning_vi}` : ""})`}
+                placeholder="Hỏi về từ này…" />
             </>
           )}
         </div>
