@@ -9,6 +9,8 @@ import Chinese from "./pages/Chinese.jsx";
 import Translate from "./pages/Translate.jsx";
 import TranslateEn from "./pages/TranslateEn.jsx";
 import Todo from "./pages/Todo.jsx";
+import History from "./pages/History.jsx";
+import Hsk from "./pages/Hsk.jsx";
 
 function Guard({ children }) {
   const { user, loading } = useAuth();
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="/translate" element={<Guard><Translate /></Guard>} />
           <Route path="/translate-en" element={<Guard><TranslateEn /></Guard>} />
           <Route path="/todo" element={<Guard><Todo /></Guard>} />
+          <Route path="/history" element={<Guard><History /></Guard>} />
+          <Route path="/hsk" element={<Guard><Hsk /></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

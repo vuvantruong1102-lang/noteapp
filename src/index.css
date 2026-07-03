@@ -498,3 +498,29 @@ a { color: var(--accent-700); text-decoration: none; }
 .ask-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
 .ask-q { font-weight: 600; margin-bottom: 4px; }
 .ask-a { white-space: pre-wrap; }
+
+/* ====== Lịch sử tra cứu (bảng) ====== */
+.hist-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+.hist-date { flex: 0 0 74px; }
+.hist-word { font-size: 20px; cursor: pointer; flex: 0 0 auto; }
+.hist-word:hover { color: var(--accent-700); }
+.hist-py { flex: 0 0 auto; min-width: 60px; }
+.hist-mean { flex: 1; color: var(--text-soft); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-badges { display: flex; gap: 6px; flex: 0 0 auto; }
+.hist-del { border: none; background: transparent; color: var(--text-mute); font-size: 18px; cursor: pointer; opacity: .5; }
+.hist-del:hover { color: #c2185b; opacity: 1; }
+@media (max-width: 720px) {
+  .hist-row { flex-wrap: wrap; }
+  .hist-mean { flex-basis: 100%; white-space: normal; }
+}
+
+/* ====== Panel HSK ====== */
+.hsk-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  background: transparent; border: none; cursor: pointer; text-align: left; font-size: 15px; }
+.hsk-head:hover { background: var(--hover); }
+.hsk-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 18px 18px; }
+.hsk-word { display: inline-flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+  cursor: pointer; min-width: 48px; transition: background .15s, border-color .15s; }
+.hsk-word:hover { background: var(--accent-tint); border-color: var(--accent); }
+.hsk-word .zh { font-size: 20px; }
