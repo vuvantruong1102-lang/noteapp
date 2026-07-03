@@ -19,4 +19,5 @@ export const api = {
   zdic:        (word) => post("/api/zdic",      { word }),
   sentence:    (text) => post("/api/sentence",  { text }),
   sentenceEn:  (text) => post("/api/translate-en", { text }),
+  ask:         (question, context) => post("/api/ask", { question, context }),
 };
