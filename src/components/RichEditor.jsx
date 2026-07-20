@@ -33,6 +33,26 @@ export default function RichEditor({ value, onChange, placeholder }) {
 
   function sync() { onChange?.(ref.current.innerHTML); }
 
+  // Đánh dấu danh sách số hiện tại là "bắt đầu lại từ 1" (reset bộ đếm CSS)
+  function currentOL() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let el = sel.anchorNode;
+    el = el && el.nodeType === 3 ? el.parentElement : el;
+    return el?.closest?.("ol") || null;
+  }
+  function markRestart() {
+    const ol = currentOL();
+    if (ol) ol.setAttribute("data-ol-restart", "1");
+  }
+  // Nút "danh sách đánh số" trên thanh công cụ / gõ "1." -> danh sách MỚI bắt đầu từ 1
+  function orderedListNew() {
+    ref.current?.focus();
+    document.execCommand("insertOrderedList");
+    markRestart();
+    sync();
+  }
+
   function exec(cmd, val) {
     ref.current?.focus();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
@@ -152,6 +172,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
             sel.addRange(range);          // chọn phần tiền tố ("-" hoặc "1.")
             document.execCommand("delete"); // xoá nó, con trỏ vẫn hợp lệ
             document.execCommand(listCmd);  // rồi biến dòng thành danh sách
+            if (listCmd === "insertOrderedList") markRestart(); // gõ "1." -> danh sách mới bắt đầu từ 1
             sync();
             return;
           }
@@ -208,7 +229,8 @@ export default function RichEditor({ value, onChange, placeholder }) {
         {tbBtn(<s>S</s>,  "strikeThrough", null, "Gạch ngang")}
         <span className="tb-sep" />
         {tbBtn("• ≡", "insertUnorderedList", null, "Danh sách có dấu đầu dòng")}
-        {tbBtn("1. ≡", "insertOrderedList",  null, "Danh sách đánh số")}
+        <button title="Danh sách đánh số (bắt đầu từ 1)"
+          onMouseDown={(e) => { e.preventDefault(); orderedListNew(); }}>1. ≡</button>
         {tbBtn("⇤",   "outdent",            null, "Giảm thụt (Shift+Tab)")}
         {tbBtn("⇥",   "indent",             null, "Tăng thụt (Tab)")}
         <span className="tb-sep" />
