@@ -231,6 +231,7 @@ a { color: var(--accent-700); text-decoration: none; }
   display: inline-block; min-width: 1.5em; margin-left: -1.95em;
   margin-right: .45em; text-align: right; color: inherit;
 }
+.rich-editor ol[data-ol-restart] { counter-reset: rt-ol; }
 .rich-editor blockquote { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--text-soft); margin: 12px 0; }
 .rich-editor font[size="1"] { font-size: 11px; } .rich-editor font[size="2"] { font-size: 13px; }
 .rich-editor font[size="3"] { font-size: 16px; } .rich-editor font[size="4"] { font-size: 18px; }
