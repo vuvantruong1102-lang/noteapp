@@ -32,7 +32,10 @@ export default function RichEditor({ value, onChange, placeholder }) {
     }
   }, [value]);
 
-  function sync() { onChange?.(ref.current.innerHTML); }
+  function sync() {
+    normalizeLists();
+    onChange?.(ref.current.innerHTML);
+  }
 
   // ===== Đánh số mượt như Google Docs =====
   // Gộp các danh sách cùng loại nằm SÁT NHAU thành MỘT danh sách -> trình duyệt
@@ -163,6 +166,32 @@ export default function RichEditor({ value, onChange, placeholder }) {
   }
 
   function onKeyDown(e) {
+    // Gõ "1." + dấu cách -> tự thành danh sách đánh số; "-"/"*" + dấu cách -> gạch đầu dòng
+    if (e.key === " ") {
+      const sel = window.getSelection();
+      if (sel && sel.isCollapsed && sel.rangeCount) {
+        const node = sel.anchorNode;
+        const el = node && node.nodeType === 3 ? node.parentElement : node;
+        if (!el?.closest?.("li")) {
+          const container = blockOf(node);
+          const rr = document.createRange();
+          rr.selectNodeContents(container || ref.current);
+          rr.setEnd(sel.anchorNode, sel.anchorOffset);
+          const before = rr.toString();
+          const safe = container || !before.includes("\n");
+          const t = before.trim();
+          if (safe && /^\d{1,2}\.$/.test(t)) {
+            e.preventDefault(); rr.deleteContents();
+            document.execCommand("insertOrderedList"); normalizeLists(); sync(); return;
+          }
+          if (safe && /^[-*]$/.test(t)) {
+            e.preventDefault(); rr.deleteContents();
+            document.execCommand("insertUnorderedList"); normalizeLists(); sync(); return;
+          }
+        }
+      }
+    }
+
     if (e.key === "Tab") { e.preventDefault(); handleTab(e.shiftKey); return; }
     if (e.key === "Backspace") {
       const sel = window.getSelection();
