@@ -21,55 +21,22 @@ const SIZES = [
 
 export default function RichEditor({ value, onChange, placeholder }) {
   const ref = useRef(null);
-  const painter = useRef(null);     // định dạng đã "quét"
-  const armed = useRef(false);      // đã bấm chuột trong editor để chọn vùng đích chưa
+  const painter = useRef(null);
+  const armed = useRef(false);
   const [painterOn, setPainterOn] = useState(false);
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (value || "")) {
       ref.current.innerHTML = value || "";
-      normalizeLists();
     }
   }, [value]);
 
-  function sync() {
-    normalizeLists();
-    onChange?.(ref.current.innerHTML);
-  }
-
-  // ===== Đánh số mượt như Google Docs =====
-  // Gộp các danh sách cùng loại nằm SÁT NHAU thành MỘT danh sách -> trình duyệt
-  // tự đánh số 1,2,3… liên tục và Enter tự tăng số. Với <ol> bị <ul> (mục con)
-  // xen giữa thì nối số bằng thuộc tính start.
-  function normalizeLists() {
-    const root = ref.current; if (!root) return;
-    let n = root.firstElementChild;
-    while (n) {
-      const next = n.nextElementSibling;
-      if (next && n.tagName === next.tagName && (n.tagName === "OL" || n.tagName === "UL")) {
-        while (next.firstChild) n.appendChild(next.firstChild);
-        next.remove();
-        continue; // thử gộp tiếp
-      }
-      n = n.nextElementSibling;
-    }
-    let count = 0;
-    for (const ch of Array.from(root.children)) {
-      if (ch.tagName === "OL") {
-        const start = count + 1;
-        if (ch.getAttribute("start") !== String(start)) ch.setAttribute("start", String(start));
-        count += ch.querySelectorAll(":scope > li").length;
-      }
-      // Các khối khác (đoạn văn, danh sách gạch đầu dòng) KHÔNG reset ->
-      // số thứ tự nối tiếp liên tục toàn tài liệu (1,2,3,4…).
-    }
-  }
+  function sync() { onChange?.(ref.current.innerHTML); }
 
   function exec(cmd, val) {
     ref.current?.focus();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
     document.execCommand(cmd, false, val);
-    normalizeLists();
     sync();
   }
 
@@ -102,7 +69,6 @@ export default function RichEditor({ value, onChange, placeholder }) {
     if (!f) { setPainterOn(false); return; }
     ref.current?.focus();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
-
     const isOL = document.queryCommandState("insertOrderedList");
     const isUL = document.queryCommandState("insertUnorderedList");
     if (f.ol && !isOL)            document.execCommand("insertOrderedList");
@@ -117,18 +83,15 @@ export default function RichEditor({ value, onChange, placeholder }) {
     if (document.queryCommandState("strikeThrough") !== f.strike)    document.execCommand("strikeThrough");
     if (f.fontName)                                document.execCommand("fontName", false, f.fontName);
     if (f.fontSize && /^[1-7]$/.test(f.fontSize))  document.execCommand("fontSize", false, f.fontSize);
-
     painter.current = null;
     setPainterOn(false);
-    normalizeLists();
     sync();
   }
 
-  // Khi bật chổi quét: chờ người dùng QUÉT CHỌN vùng đích trong editor rồi thả chuột mới dán.
   useEffect(() => {
     if (!painterOn) { armed.current = false; return; }
     function onUp() {
-      if (!armed.current) return;   // chỉ áp dụng khi vùng chọn bắt đầu từ trong editor
+      if (!armed.current) return;
       armed.current = false;
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
@@ -154,7 +117,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
     const node = sel.anchorNode;
     const el = node && node.nodeType === 3 ? node.parentElement : node;
     const li = el?.closest?.("li");
-    if (li) { document.execCommand(shift ? "outdent" : "indent"); normalizeLists(); sync(); return; }
+    if (li) { document.execCommand(shift ? "outdent" : "indent"); sync(); return; }
     let block = blockOf(node);
     if (!block) { document.execCommand("formatBlock", false, "div"); block = blockOf(window.getSelection().anchorNode); }
     if (block) {
@@ -166,7 +129,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
   }
 
   function onKeyDown(e) {
-    // Gõ "1." + dấu cách -> tự thành danh sách đánh số; "-"/"*" + dấu cách -> gạch đầu dòng
+    // Gõ "1." + dấu cách -> danh sách đánh số; "-"/"*" + dấu cách -> gạch đầu dòng
     if (e.key === " ") {
       const sel = window.getSelection();
       if (sel && sel.isCollapsed && sel.rangeCount) {
@@ -182,17 +145,18 @@ export default function RichEditor({ value, onChange, placeholder }) {
           const t = before.trim();
           if (safe && /^\d{1,2}\.$/.test(t)) {
             e.preventDefault(); rr.deleteContents();
-            document.execCommand("insertOrderedList"); normalizeLists(); sync(); return;
+            document.execCommand("insertOrderedList"); sync(); return;
           }
           if (safe && /^[-*]$/.test(t)) {
             e.preventDefault(); rr.deleteContents();
-            document.execCommand("insertUnorderedList"); normalizeLists(); sync(); return;
+            document.execCommand("insertUnorderedList"); sync(); return;
           }
         }
       }
     }
 
     if (e.key === "Tab") { e.preventDefault(); handleTab(e.shiftKey); return; }
+
     if (e.key === "Backspace") {
       const sel = window.getSelection();
       if (!sel || !sel.isCollapsed || sel.rangeCount === 0) return;
@@ -201,23 +165,19 @@ export default function RichEditor({ value, onChange, placeholder }) {
       const li = el?.closest?.("li");
       const container = li || blockOf(node);
       if (!container) return;
-      // Con trỏ có đang ở NGAY ĐẦU khối không?
       const r = document.createRange();
       r.selectNodeContents(container);
       r.setEnd(sel.anchorNode, sel.anchorOffset);
       if (r.toString() !== "") return;
-
-      if (li) {                         // đầu mục danh sách -> thoát danh sách
+      if (li) {
         e.preventDefault();
         ref.current?.focus();
         if (li.closest("ol"))      document.execCommand("insertOrderedList");
         else if (li.closest("ul")) document.execCommand("insertUnorderedList");
         else                       document.execCommand("outdent");
-        normalizeLists();
         sync();
         return;
       }
-      // Dòng thường đang thụt vào -> Backspace giảm/bỏ thụt (thay vì gộp dòng)
       const cur = parseFloat(container.style.marginLeft) || 0;
       if (cur > 0) {
         e.preventDefault();
