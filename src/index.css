@@ -186,10 +186,12 @@ a { color: var(--accent-700); text-decoration: none; }
   margin: 0 0 7px; text-transform: uppercase; letter-spacing: .05em; }
 
 /* ====================== EDITOR ====================== */
-.editor-page { padding: 26px 36px 60px; max-width: 1320px; margin: 0 auto; }
-.editor-bar  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.editor-page { padding: 0; max-width: none; margin: 0; background: var(--surface-2); min-height: 100%; }
+.editor-bar  { display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 22px; margin: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
 .editor-card { background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: visible; }
+  border-radius: 4px; overflow: visible; max-width: 820px; margin: 24px auto 64px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.13), 0 1px 2px rgba(0,0,0,.08); }
 .editor-title {
   width: 100%; padding: 24px 30px 8px;
   font-size: 26px; font-weight: 600; letter-spacing: -.015em;
@@ -213,7 +215,7 @@ a { color: var(--accent-700); text-decoration: none; }
 .tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 
 .rich-editor {
-  min-height: 65vh; padding: 28px 32px; outline: none;
+  min-height: 72vh; padding: 40px 54px; outline: none;
   font-size: 16px; line-height: 1.85; color: var(--text);
 }
 .rich-editor:empty::before { content: attr(data-placeholder); color: var(--text-mute); pointer-events: none; }
@@ -267,7 +269,10 @@ a { color: var(--accent-700); text-decoration: none; }
   .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
   .nav-scroll { padding: 10px 14px; }
   .nav-bottom { border-top: 1px solid var(--border); }
-  .page, .editor-page { padding: 22px 18px 48px; }
+  .page { padding: 22px 18px 48px; }
+  .editor-page { padding: 0; }
+  .editor-card { margin: 12px 10px 40px; }
+  .rich-editor { padding: 22px 20px; }
   .zh-layout { grid-template-columns: 1fr; } .zh-aside { position: static; }
 }
 
