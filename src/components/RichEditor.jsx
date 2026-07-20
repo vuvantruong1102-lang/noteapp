@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 
 const FONTS = [
   { label: "Font mặc định",   value: "" },
+  { label: "Arial",           value: "Arial" },
+  { label: "Times New Roman", value: "Times New Roman" },
   { label: "Be Vietnam Pro",  value: "Be Vietnam Pro" },
   { label: "Noto Sans SC",    value: "Noto Sans SC" },
-  { label: "Serif",           value: "Georgia, serif" },
+  { label: "Georgia",         value: "Georgia" },
   { label: "Monospace",       value: "ui-monospace, SFMono-Regular, Menlo, monospace" },
 ];
 
@@ -19,54 +21,60 @@ const SIZES = [
 
 export default function RichEditor({ value, onChange, placeholder }) {
   const ref = useRef(null);
-  const painter = useRef(null);          // định dạng đã "quét"
+  const painter = useRef(null);     // định dạng đã "quét"
+  const armed = useRef(false);      // đã bấm chuột trong editor để chọn vùng đích chưa
   const [painterOn, setPainterOn] = useState(false);
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (value || "")) {
       ref.current.innerHTML = value || "";
-      renumberOrderedLists();
+      normalizeLists();
     }
   }, [value]);
 
-  // Đánh số liên tục cho các danh sách số ở cấp ngoài cùng (mỗi dòng là 1 <ol>
-  // riêng nên mặc định đều bắt đầu từ 1; ta gán thuộc tính start nối tiếp nhau).
-  // Danh sách gạch đầu dòng (mục con) KHÔNG làm gián đoạn; gặp đoạn văn thì đánh lại từ 1.
-  function renumberOrderedLists() {
+  function sync() { onChange?.(ref.current.innerHTML); }
+
+  // ===== Đánh số mượt như Google Docs =====
+  // Gộp các danh sách cùng loại nằm SÁT NHAU thành MỘT danh sách -> trình duyệt
+  // tự đánh số 1,2,3… liên tục và Enter tự tăng số. Với <ol> bị <ul> (mục con)
+  // xen giữa thì nối số bằng thuộc tính start.
+  function normalizeLists() {
     const root = ref.current; if (!root) return;
+    let n = root.firstElementChild;
+    while (n) {
+      const next = n.nextElementSibling;
+      if (next && n.tagName === next.tagName && (n.tagName === "OL" || n.tagName === "UL")) {
+        while (next.firstChild) n.appendChild(next.firstChild);
+        next.remove();
+        continue; // thử gộp tiếp
+      }
+      n = n.nextElementSibling;
+    }
     let count = 0;
     for (const ch of Array.from(root.children)) {
       if (ch.tagName === "OL") {
         const start = count + 1;
         if (ch.getAttribute("start") !== String(start)) ch.setAttribute("start", String(start));
         count += ch.querySelectorAll(":scope > li").length;
-      } else if (ch.tagName === "UL") {
-        /* mục con gạch đầu dòng -> giữ mạch số */
-      } else {
-        count = 0; /* đoạn văn/khối khác -> đánh số lại từ 1 */
+      } else if (ch.tagName !== "UL") {
+        count = 0;
       }
     }
-  }
-
-  function sync() {
-    renumberOrderedLists();
-    onChange?.(ref.current.innerHTML);
   }
 
   function exec(cmd, val) {
     ref.current?.focus();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
     document.execCommand(cmd, false, val);
+    normalizeLists();
     sync();
   }
 
   const tbBtn = (label, cmd, val, title) => (
-    <button title={title} onMouseDown={(e) => { e.preventDefault(); exec(cmd, val); }}>
-      {label}
-    </button>
+    <button title={title} onMouseDown={(e) => { e.preventDefault(); exec(cmd, val); }}>{label}</button>
   );
 
-  // ===== Chổi quét định dạng (format painter) =====
+  // ===== Chổi quét định dạng =====
   function capture() {
     ref.current?.focus();
     return {
@@ -83,40 +91,52 @@ export default function RichEditor({ value, onChange, placeholder }) {
   function togglePainter() {
     if (painterOn) { painter.current = null; setPainterOn(false); return; }
     painter.current = capture();
+    armed.current = false;
     setPainterOn(true);
   }
   function applyPainter() {
     const f = painter.current;
-    if (!f) return;
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;     // cần quét chọn vùng đích
-    if (!ref.current?.contains(sel.anchorNode)) return;
+    if (!f) { setPainterOn(false); return; }
+    ref.current?.focus();
     try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
 
-    // 1) Định dạng danh sách: số thứ tự / gạch đầu dòng
     const isOL = document.queryCommandState("insertOrderedList");
     const isUL = document.queryCommandState("insertUnorderedList");
     if (f.ol && !isOL)            document.execCommand("insertOrderedList");
     else if (f.ul && !isUL)       document.execCommand("insertUnorderedList");
-    else if (!f.ol && !f.ul) {                       // nguồn không phải danh sách -> bỏ danh sách ở đích
+    else if (!f.ol && !f.ul) {
       if (isOL) document.execCommand("insertOrderedList");
       if (isUL) document.execCommand("insertUnorderedList");
     }
-
-    // 2) Định dạng ký tự
     if (document.queryCommandState("bold")          !== f.bold)      document.execCommand("bold");
     if (document.queryCommandState("italic")        !== f.italic)    document.execCommand("italic");
     if (document.queryCommandState("underline")     !== f.underline) document.execCommand("underline");
     if (document.queryCommandState("strikeThrough") !== f.strike)    document.execCommand("strikeThrough");
-    if (f.fontName)                       document.execCommand("fontName", false, f.fontName);
-    if (f.fontSize && /^[1-7]$/.test(f.fontSize)) document.execCommand("fontSize", false, f.fontSize);
+    if (f.fontName)                                document.execCommand("fontName", false, f.fontName);
+    if (f.fontSize && /^[1-7]$/.test(f.fontSize))  document.execCommand("fontSize", false, f.fontSize);
 
     painter.current = null;
     setPainterOn(false);
+    normalizeLists();
     sync();
   }
 
-  // ===== Tìm block (con trực tiếp của vùng soạn thảo) chứa con trỏ =====
+  // Khi bật chổi quét: chờ người dùng QUÉT CHỌN vùng đích trong editor rồi thả chuột mới dán.
+  useEffect(() => {
+    if (!painterOn) { armed.current = false; return; }
+    function onUp() {
+      if (!armed.current) return;   // chỉ áp dụng khi vùng chọn bắt đầu từ trong editor
+      armed.current = false;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+      if (!ref.current || !ref.current.contains(sel.anchorNode) || !ref.current.contains(sel.focusNode)) return;
+      applyPainter();
+    }
+    document.addEventListener("mouseup", onUp);
+    return () => document.removeEventListener("mouseup", onUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [painterOn]);
+
   function blockOf(node) {
     const root = ref.current;
     let el = node && node.nodeType === 3 ? node.parentElement : node;
@@ -124,7 +144,6 @@ export default function RichEditor({ value, onChange, placeholder }) {
     return el && el !== root ? el : null;
   }
 
-  // ===== Tab: thụt dòng. Shift+Tab: lùi lại =====
   function handleTab(shift) {
     ref.current?.focus();
     const sel = window.getSelection();
@@ -132,16 +151,9 @@ export default function RichEditor({ value, onChange, placeholder }) {
     const node = sel.anchorNode;
     const el = node && node.nodeType === 3 ? node.parentElement : node;
     const li = el?.closest?.("li");
-    if (li) {                                  // trong danh sách -> lồng cấp
-      document.execCommand(shift ? "outdent" : "indent");
-      sync();
-      return;
-    }
-    let block = blockOf(node);                 // ngoài danh sách -> chỉnh lề trái của dòng
-    if (!block) {
-      document.execCommand("formatBlock", false, "div");
-      block = blockOf(window.getSelection().anchorNode);
-    }
+    if (li) { document.execCommand(shift ? "outdent" : "indent"); normalizeLists(); sync(); return; }
+    let block = blockOf(node);
+    if (!block) { document.execCommand("formatBlock", false, "div"); block = blockOf(window.getSelection().anchorNode); }
     if (block) {
       const cur = parseFloat(block.style.marginLeft) || 0;
       const next = Math.max(0, cur + (shift ? -2.5 : 2.5));
@@ -152,8 +164,6 @@ export default function RichEditor({ value, onChange, placeholder }) {
 
   function onKeyDown(e) {
     if (e.key === "Tab") { e.preventDefault(); handleTab(e.shiftKey); return; }
-
-    // Backspace ở ĐẦU mục danh sách -> thoát danh sách (xoá số/dấu đầu dòng)
     if (e.key === "Backspace") {
       const sel = window.getSelection();
       if (!sel || !sel.isCollapsed || sel.rangeCount === 0) return;
@@ -170,6 +180,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
       if (li.closest("ol"))      document.execCommand("insertOrderedList");
       else if (li.closest("ul")) document.execCommand("insertUnorderedList");
       else                       document.execCommand("outdent");
+      normalizeLists();
       sync();
     }
   }
@@ -198,7 +209,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
         {tbBtn("✕",   "removeFormat", null, "Xoá định dạng")}
         <span className="tb-sep" />
         <button className={"painter" + (painterOn ? " painter-on" : "")}
-          title="Chép định dạng (gồm cả danh sách số/gạch đầu dòng): bấm rồi quét chọn vùng muốn dán. Bấm lại để huỷ."
+          title="Chép định dạng: bấm rồi quét chọn vùng muốn dán. Bấm lại để huỷ."
           onMouseDown={(e) => { e.preventDefault(); togglePainter(); }}>🖌</button>
       </div>
       <div
@@ -209,7 +220,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
         spellCheck={false}
         onInput={sync}
         onKeyDown={onKeyDown}
-        onMouseUp={applyPainter}
+        onMouseDown={() => { if (painterOn) armed.current = true; }}
         data-placeholder={placeholder || "Bắt đầu viết…"}
       />
     </>
