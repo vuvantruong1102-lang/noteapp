@@ -56,9 +56,9 @@ export default function RichEditor({ value, onChange, placeholder }) {
         const start = count + 1;
         if (ch.getAttribute("start") !== String(start)) ch.setAttribute("start", String(start));
         count += ch.querySelectorAll(":scope > li").length;
-      } else if (ch.tagName !== "UL") {
-        count = 0;
       }
+      // Các khối khác (đoạn văn, danh sách gạch đầu dòng) KHÔNG reset ->
+      // số thứ tự nối tiếp liên tục toàn tài liệu (1,2,3,4…).
     }
   }
 
@@ -170,18 +170,32 @@ export default function RichEditor({ value, onChange, placeholder }) {
       const node = sel.anchorNode;
       const el = node && node.nodeType === 3 ? node.parentElement : node;
       const li = el?.closest?.("li");
-      if (!li) return;
+      const container = li || blockOf(node);
+      if (!container) return;
+      // Con trỏ có đang ở NGAY ĐẦU khối không?
       const r = document.createRange();
-      r.selectNodeContents(li);
+      r.selectNodeContents(container);
       r.setEnd(sel.anchorNode, sel.anchorOffset);
       if (r.toString() !== "") return;
-      e.preventDefault();
-      ref.current?.focus();
-      if (li.closest("ol"))      document.execCommand("insertOrderedList");
-      else if (li.closest("ul")) document.execCommand("insertUnorderedList");
-      else                       document.execCommand("outdent");
-      normalizeLists();
-      sync();
+
+      if (li) {                         // đầu mục danh sách -> thoát danh sách
+        e.preventDefault();
+        ref.current?.focus();
+        if (li.closest("ol"))      document.execCommand("insertOrderedList");
+        else if (li.closest("ul")) document.execCommand("insertUnorderedList");
+        else                       document.execCommand("outdent");
+        normalizeLists();
+        sync();
+        return;
+      }
+      // Dòng thường đang thụt vào -> Backspace giảm/bỏ thụt (thay vì gộp dòng)
+      const cur = parseFloat(container.style.marginLeft) || 0;
+      if (cur > 0) {
+        e.preventDefault();
+        const next = Math.max(0, cur - 2.5);
+        container.style.marginLeft = next ? next + "em" : "";
+        sync();
+      }
     }
   }
 
