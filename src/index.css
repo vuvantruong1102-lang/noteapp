@@ -224,15 +224,13 @@ a { color: var(--accent-700); text-decoration: none; }
 
 /* Đánh số liên tục toàn trình soạn thảo bằng CSS counter (chắc ăn, không cần JS) */
 .rich-editor { counter-reset: rt-ol; }
-.rich-editor > ol { list-style: none; }
-.rich-editor > ol > li { counter-increment: rt-ol; }
-.rich-editor > ol > li::before {
+.rich-editor ol { list-style: none; }
+.rich-editor ol > li { counter-increment: rt-ol; }
+.rich-editor ol > li::before {
   content: counter(rt-ol) ". ";
   display: inline-block; min-width: 1.5em; margin-left: -1.95em;
   margin-right: .45em; text-align: right; color: inherit;
 }
-/* danh sách số LỒNG bên trong giữ đánh số riêng kiểu mặc định */
-.rich-editor ol ol { list-style: decimal; }
 .rich-editor blockquote { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--text-soft); margin: 12px 0; }
 .rich-editor font[size="1"] { font-size: 11px; } .rich-editor font[size="2"] { font-size: 13px; }
 .rich-editor font[size="3"] { font-size: 16px; } .rich-editor font[size="4"] { font-size: 18px; }
