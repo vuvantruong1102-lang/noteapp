@@ -129,7 +129,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
   }
 
   function onKeyDown(e) {
-    // Gõ "1." + dấu cách -> danh sách đánh số; "-"/"*" + dấu cách -> gạch đầu dòng
+    // Gõ "1." + dấu cách -> danh sách đánh số; "-"/"*"/"+" + dấu cách -> gạch đầu dòng
     if (e.key === " ") {
       const sel = window.getSelection();
       if (sel && sel.isCollapsed && sel.rangeCount) {
@@ -137,19 +137,23 @@ export default function RichEditor({ value, onChange, placeholder }) {
         const el = node && node.nodeType === 3 ? node.parentElement : node;
         if (!el?.closest?.("li")) {
           const container = blockOf(node);
-          const rr = document.createRange();
-          rr.selectNodeContents(container || ref.current);
-          rr.setEnd(sel.anchorNode, sel.anchorOffset);
-          const before = rr.toString();
+          const range = document.createRange();
+          range.selectNodeContents(container || ref.current);
+          range.setEnd(sel.anchorNode, sel.anchorOffset);
+          const before = range.toString();
           const safe = container || !before.includes("\n");
           const t = before.trim();
-          if (safe && /^\d{1,2}\.$/.test(t)) {
-            e.preventDefault(); rr.deleteContents();
-            document.execCommand("insertOrderedList"); sync(); return;
-          }
-          if (safe && /^[-*]$/.test(t)) {
-            e.preventDefault(); rr.deleteContents();
-            document.execCommand("insertUnorderedList"); sync(); return;
+          let listCmd = null;
+          if (safe && /^\d{1,2}\.$/.test(t)) listCmd = "insertOrderedList";
+          else if (safe && /^[-*+]$/.test(t)) listCmd = "insertUnorderedList";
+          if (listCmd) {
+            e.preventDefault();
+            sel.removeAllRanges();
+            sel.addRange(range);          // chọn phần tiền tố ("-" hoặc "1.")
+            document.execCommand("delete"); // xoá nó, con trỏ vẫn hợp lệ
+            document.execCommand(listCmd);  // rồi biến dòng thành danh sách
+            sync();
+            return;
           }
         }
       }
