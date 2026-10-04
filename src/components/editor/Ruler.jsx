@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 /**
- * Thước căn lề — kéo con trỏ để chỉnh độ thụt lề trái/phải của đoạn đang chọn.
+ * Thước căn lề — kéo con trỏ để chỉnh độ thụt lề trái/phải của đoạn/dòng đang chọn.
  * Hoạt động với extension Indent (đơn vị em). 1em ≈ 16px.
- * - Tam giác TRÁI (▸): lề trái.
- * - Tam giác PHẢI (◂): lề phải.
- * Chỉ áp cho đoạn/heading (ngoài list). Trong list thì ẩn hint, kéo vẫn set lề đoạn gần nhất.
+ * - Tam giác TRÁI: lề trái  — khi lề=0 nằm sát ĐẦU TRÁI vạch thước.
+ * - Tam giác PHẢI: lề phải  — khi lề=0 nằm sát ĐẦU PHẢI vạch thước.
+ * Hộp thước (.ruler-inner) khớp đúng cột soạn thảo nên 2 marker nằm đúng 2 đầu vạch đen.
  */
-const EM_PX = 16;      // 1em
+const EM_PX = 16;
 const MAX_EM = 80;
 
 export default function Ruler({ editor }) {
@@ -15,9 +15,8 @@ export default function Ruler({ editor }) {
   const [left, setLeft] = useState(0);    // em
   const [right, setRight] = useState(0);  // em
   const [trackW, setTrackW] = useState(0);
-  const dragging = useRef(null);          // 'left' | 'right' | null
+  const dragging = useRef(null);
 
-  // đọc lề của block hiện tại
   const readIndent = useCallback(() => {
     if (!editor) return;
     const pick = (attr) =>
@@ -36,22 +35,15 @@ export default function Ruler({ editor }) {
     return () => { editor.off("selectionUpdate", readIndent); editor.off("transaction", readIndent); };
   }, [editor, readIndent]);
 
-  // đo bề rộng vùng soạn thảo để thước khớp
+  // đo bề rộng CỦA CHÍNH VẠCH THƯỚC (track) -> marker tính theo đúng nó
   useEffect(() => {
-    if (!editor) return;
     const measure = () => {
-      const dom = editor.view?.dom;
-      if (!dom) return;
-      const cs = window.getComputedStyle(dom);
-      const padL = parseFloat(cs.paddingLeft) || 0;
-      const padR = parseFloat(cs.paddingRight) || 0;
-      // bề rộng cột chữ thực tế = clientWidth - padding 2 bên
-      setTrackW(Math.max(0, dom.clientWidth - padL - padR));
+      if (trackRef.current) setTrackW(trackRef.current.clientWidth);
     };
     measure();
     window.addEventListener("resize", measure);
     const ro = new ResizeObserver(measure);
-    if (editor.view?.dom) ro.observe(editor.view.dom);
+    if (trackRef.current) ro.observe(trackRef.current);
     return () => { window.removeEventListener("resize", measure); ro.disconnect(); };
   }, [editor]);
 
@@ -63,12 +55,11 @@ export default function Ruler({ editor }) {
       if (!track || !editor) return;
       const rect = track.getBoundingClientRect();
       const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
-      // cho kéo HẾT chiều rộng ô soạn thảo (trừ chừa 24px để 2 marker không chồng nhau)
-      const maxPx = Math.max(0, rect.width - 24);
+      const maxPx = Math.max(0, rect.width - 20); // chừa 20px để 2 marker không đè nhau
       if (which === "left") {
         let px = clientX - rect.left;
         px = Math.max(0, Math.min(maxPx - right * EM_PX, px));
-        const em = Math.round((px / EM_PX) * 2) / 2; // bắt theo 0.5em
+        const em = Math.round((px / EM_PX) * 2) / 2;
         setLeft(em);
         editor.chain().setBlockIndent(em).run();
       } else {
@@ -98,26 +89,25 @@ export default function Ruler({ editor }) {
   const leftPx = Math.min(left * EM_PX, trackW);
   const rightPx = Math.min(right * EM_PX, trackW);
 
-  // vạch chia mỗi 2em
   const ticks = [];
-  for (let em = 0; em <= MAX_EM; em += 2) {
+  for (let em = 2; em < MAX_EM; em += 2) {
     const x = em * EM_PX;
-    if (x > trackW) break;
+    if (x >= trackW) break;
     ticks.push(<span key={em} className="ruler-tick" style={{ left: x }} />);
   }
 
   return (
     <div className="ruler" role="group" aria-label="Thước căn lề">
-      <div className="ruler-track" ref={trackRef} style={{ width: trackW || "100%" }}>
-        {ticks}
-        {/* marker lề trái */}
-        <button type="button" className="ruler-marker ruler-left"
-          style={{ left: leftPx }} onMouseDown={onDown("left")} onTouchStart={onDown("left")}
-          title={`Lề trái: ${left}em — kéo để chỉnh`} aria-label="Kéo chỉnh lề trái" />
-        {/* marker lề phải */}
-        <button type="button" className="ruler-marker ruler-right"
-          style={{ right: rightPx }} onMouseDown={onDown("right")} onTouchStart={onDown("right")}
-          title={`Lề phải: ${right}em — kéo để chỉnh`} aria-label="Kéo chỉnh lề phải" />
+      <div className="ruler-inner">
+        <div className="ruler-track" ref={trackRef}>
+          {ticks}
+          <button type="button" className="ruler-marker ruler-left"
+            style={{ left: leftPx }} onMouseDown={onDown("left")} onTouchStart={onDown("left")}
+            title={`Lề trái: ${left}em — kéo để chỉnh`} aria-label="Kéo chỉnh lề trái" />
+          <button type="button" className="ruler-marker ruler-right"
+            style={{ right: rightPx }} onMouseDown={onDown("right")} onTouchStart={onDown("right")}
+            title={`Lề phải: ${right}em — kéo để chỉnh`} aria-label="Kéo chỉnh lề phải" />
+        </div>
       </div>
     </div>
   );
