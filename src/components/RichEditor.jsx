@@ -1,257 +1,149 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextStyle from "@tiptap/extension-text-style";
+import Color from "@tiptap/extension-color";
+import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import Link from "@tiptap/extension-link";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Placeholder from "@tiptap/extension-placeholder";
+import FontSize from "./editor/FontSize.js";
+import ChecklistInputRule from "./editor/ChecklistInputRule.js";
+import EditorToolbar from "./editor/EditorToolbar.jsx";
 
-const FONTS = [
-  { label: "Font mặc định",   value: "" },
-  { label: "Arial",           value: "Arial" },
-  { label: "Times New Roman", value: "Times New Roman" },
-  { label: "Be Vietnam Pro",  value: "Be Vietnam Pro" },
-  { label: "Noto Sans SC",    value: "Noto Sans SC" },
-  { label: "Georgia",         value: "Georgia" },
-  { label: "Monospace",       value: "ui-monospace, SFMono-Regular, Menlo, monospace" },
-];
-
-const SIZES = [
-  { label: "Cỡ chữ",      value: "" },
-  { label: "Nhỏ",         value: "2" },
-  { label: "Bình thường", value: "3" },
-  { label: "Lớn",         value: "5" },
-  { label: "Rất lớn",     value: "6" },
-  { label: "Tiêu đề",     value: "7" },
-];
+/* Note cũ có thể là plain text (không thẻ HTML). TipTap nhận HTML,
+   nên ta bọc plain text thành <p> và giữ xuống dòng. HTML thì giữ nguyên. */
+function normalizeInitial(value) {
+  const v = value || "";
+  if (!v.trim()) return "";
+  const looksHtml = /<\/?[a-z][\s\S]*>/i.test(v);
+  if (looksHtml) return v;
+  const esc = v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return esc
+    .split(/\n{2,}/)
+    .map((p) => "<p>" + p.replace(/\n/g, "<br>") + "</p>")
+    .join("");
+}
 
 export default function RichEditor({ value, onChange, placeholder }) {
-  const ref = useRef(null);
-  const painter = useRef(null);
-  const armed = useRef(false);
-  const [painterOn, setPainterOn] = useState(false);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
+  // nhớ HTML đã đẩy ra ngoài -> bỏ qua khi value quay lại y hệt (khỏi reset con trỏ)
+  const lastHTML = useRef(normalizeInitial(value));
+
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const linkInputRef = useRef(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Underline,
+      TextStyle,
+      FontSize,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
+      }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      ChecklistInputRule,
+      Placeholder.configure({ placeholder: placeholder || "Bắt đầu viết…" }),
+    ],
+    content: normalizeInitial(value),
+    editorProps: {
+      attributes: { class: "rich-editor tiptap", spellcheck: "false" },
+    },
+    onUpdate: ({ editor }) => {
+      // TipTap không bắn onUpdate giữa composition -> an toàn với IME tiếng Trung
+      const html = editor.isEmpty ? "" : editor.getHTML();
+      lastHTML.current = html;
+      onChangeRef.current?.(html);
+    },
+  });
+
+  // value đổi từ ngoài (load note khác) -> set lại; bỏ qua nếu trùng (tránh reset con trỏ)
   useEffect(() => {
-    if (ref.current && ref.current.innerHTML !== (value || "")) {
-      ref.current.innerHTML = value || "";
+    if (!editor) return;
+    const incoming = normalizeInitial(value);
+    if (incoming === lastHTML.current) return;
+    const current = editor.isEmpty ? "" : editor.getHTML();
+    if (incoming === current) { lastHTML.current = incoming; return; }
+    lastHTML.current = incoming;
+    editor.commands.setContent(incoming || "", false);
+  }, [value, editor]);
+
+  // ===== Link dialog =====
+  const openLink = useCallback(() => {
+    if (!editor) return;
+    setLinkUrl(editor.getAttributes("link").href || "");
+    setLinkOpen(true);
+    setTimeout(() => linkInputRef.current?.focus(), 30);
+  }, [editor]);
+
+  const applyLink = () => {
+    const url = linkUrl.trim();
+    if (!url) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      const href = /^(https?:|mailto:|tel:)/i.test(url) ? url : "https://" + url;
+      editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
     }
-  }, [value]);
+    setLinkOpen(false); setLinkUrl("");
+  };
+  const removeLink = () => {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkOpen(false); setLinkUrl("");
+  };
 
-  function sync() { onChange?.(ref.current.innerHTML); }
-
-  // Đánh dấu danh sách số hiện tại là "bắt đầu lại từ 1" (reset bộ đếm CSS)
-  function currentOL() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-    let el = sel.anchorNode;
-    el = el && el.nodeType === 3 ? el.parentElement : el;
-    return el?.closest?.("ol") || null;
-  }
-  function markRestart() {
-    const ol = currentOL();
-    if (ol) ol.setAttribute("data-ol-restart", "1");
-  }
-  // Nút "danh sách đánh số" trên thanh công cụ / gõ "1." -> danh sách MỚI bắt đầu từ 1
-  function orderedListNew() {
-    ref.current?.focus();
-    document.execCommand("insertOrderedList");
-    markRestart();
-    sync();
-  }
-
-  function exec(cmd, val) {
-    ref.current?.focus();
-    try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
-    document.execCommand(cmd, false, val);
-    sync();
-  }
-
-  const tbBtn = (label, cmd, val, title) => (
-    <button title={title} onMouseDown={(e) => { e.preventDefault(); exec(cmd, val); }}>{label}</button>
-  );
-
-  // ===== Chổi quét định dạng =====
-  function capture() {
-    ref.current?.focus();
-    return {
-      bold:      document.queryCommandState("bold"),
-      italic:    document.queryCommandState("italic"),
-      underline: document.queryCommandState("underline"),
-      strike:    document.queryCommandState("strikeThrough"),
-      fontName:  document.queryCommandValue("fontName"),
-      fontSize:  document.queryCommandValue("fontSize"),
-      ol:        document.queryCommandState("insertOrderedList"),
-      ul:        document.queryCommandState("insertUnorderedList"),
-    };
-  }
-  function togglePainter() {
-    if (painterOn) { painter.current = null; setPainterOn(false); return; }
-    painter.current = capture();
-    armed.current = false;
-    setPainterOn(true);
-  }
-  function applyPainter() {
-    const f = painter.current;
-    if (!f) { setPainterOn(false); return; }
-    ref.current?.focus();
-    try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
-    const isOL = document.queryCommandState("insertOrderedList");
-    const isUL = document.queryCommandState("insertUnorderedList");
-    if (f.ol && !isOL)            document.execCommand("insertOrderedList");
-    else if (f.ul && !isUL)       document.execCommand("insertUnorderedList");
-    else if (!f.ol && !f.ul) {
-      if (isOL) document.execCommand("insertOrderedList");
-      if (isUL) document.execCommand("insertUnorderedList");
-    }
-    if (document.queryCommandState("bold")          !== f.bold)      document.execCommand("bold");
-    if (document.queryCommandState("italic")        !== f.italic)    document.execCommand("italic");
-    if (document.queryCommandState("underline")     !== f.underline) document.execCommand("underline");
-    if (document.queryCommandState("strikeThrough") !== f.strike)    document.execCommand("strikeThrough");
-    if (f.fontName)                                document.execCommand("fontName", false, f.fontName);
-    if (f.fontSize && /^[1-7]$/.test(f.fontSize))  document.execCommand("fontSize", false, f.fontSize);
-    painter.current = null;
-    setPainterOn(false);
-    sync();
-  }
-
+  // Ctrl/Cmd+K mở link dialog
   useEffect(() => {
-    if (!painterOn) { armed.current = false; return; }
-    function onUp() {
-      if (!armed.current) return;
-      armed.current = false;
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-      if (!ref.current || !ref.current.contains(sel.anchorNode) || !ref.current.contains(sel.focusNode)) return;
-      applyPainter();
-    }
-    document.addEventListener("mouseup", onUp);
-    return () => document.removeEventListener("mouseup", onUp);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [painterOn]);
-
-  function blockOf(node) {
-    const root = ref.current;
-    let el = node && node.nodeType === 3 ? node.parentElement : node;
-    while (el && el.parentElement !== root && el !== root) el = el.parentElement;
-    return el && el !== root ? el : null;
-  }
-
-  function handleTab(shift) {
-    ref.current?.focus();
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    const node = sel.anchorNode;
-    const el = node && node.nodeType === 3 ? node.parentElement : node;
-    const li = el?.closest?.("li");
-    if (li) { document.execCommand(shift ? "outdent" : "indent"); sync(); return; }
-    let block = blockOf(node);
-    if (!block) { document.execCommand("formatBlock", false, "div"); block = blockOf(window.getSelection().anchorNode); }
-    if (block) {
-      const cur = parseFloat(block.style.marginLeft) || 0;
-      const next = Math.max(0, cur + (shift ? -2.5 : 2.5));
-      block.style.marginLeft = next ? next + "em" : "";
-      sync();
-    }
-  }
-
-  function onKeyDown(e) {
-    // Gõ "1." + dấu cách -> danh sách đánh số; "-"/"*"/"+" + dấu cách -> gạch đầu dòng
-    if (e.key === " ") {
-      const sel = window.getSelection();
-      if (sel && sel.isCollapsed && sel.rangeCount) {
-        const node = sel.anchorNode;
-        const el = node && node.nodeType === 3 ? node.parentElement : node;
-        if (!el?.closest?.("li")) {
-          const container = blockOf(node);
-          const range = document.createRange();
-          range.selectNodeContents(container || ref.current);
-          range.setEnd(sel.anchorNode, sel.anchorOffset);
-          const before = range.toString();
-          const safe = container || !before.includes("\n");
-          const t = before.trim();
-          let listCmd = null;
-          if (safe && /^\d{1,2}\.$/.test(t)) listCmd = "insertOrderedList";
-          else if (safe && /^[-*+]$/.test(t)) listCmd = "insertUnorderedList";
-          if (listCmd) {
-            e.preventDefault();
-            sel.removeAllRanges();
-            sel.addRange(range);          // chọn phần tiền tố ("-" hoặc "1.")
-            document.execCommand("delete"); // xoá nó, con trỏ vẫn hợp lệ
-            document.execCommand(listCmd);  // rồi biến dòng thành danh sách
-            if (listCmd === "insertOrderedList") markRestart(); // gõ "1." -> danh sách mới bắt đầu từ 1
-            sync();
-            return;
-          }
-        }
+    if (!editor) return;
+    function onKey(e) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K") && editor.isFocused) {
+        e.preventDefault(); openLink();
       }
     }
-
-    if (e.key === "Tab") { e.preventDefault(); handleTab(e.shiftKey); return; }
-
-    if (e.key === "Backspace") {
-      const sel = window.getSelection();
-      if (!sel || !sel.isCollapsed || sel.rangeCount === 0) return;
-      const node = sel.anchorNode;
-      const el = node && node.nodeType === 3 ? node.parentElement : node;
-      const li = el?.closest?.("li");
-      const container = li || blockOf(node);
-      if (!container) return;
-      const r = document.createRange();
-      r.selectNodeContents(container);
-      r.setEnd(sel.anchorNode, sel.anchorOffset);
-      if (r.toString() !== "") return;
-      if (li) {
-        e.preventDefault();
-        ref.current?.focus();
-        if (li.closest("ol"))      document.execCommand("insertOrderedList");
-        else if (li.closest("ul")) document.execCommand("insertUnorderedList");
-        else                       document.execCommand("outdent");
-        sync();
-        return;
-      }
-      const cur = parseFloat(container.style.marginLeft) || 0;
-      if (cur > 0) {
-        e.preventDefault();
-        const next = Math.max(0, cur - 2.5);
-        container.style.marginLeft = next ? next + "em" : "";
-        sync();
-      }
-    }
-  }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [editor, openLink]);
 
   return (
-    <>
-      <div className="rich-toolbar" onMouseDown={(e) => { if (e.target.tagName !== "SELECT") e.preventDefault(); }}>
-        <select defaultValue="" onChange={(e) => { exec("fontName", e.target.value); e.target.value = ""; }}>
-          {FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
-        </select>
-        <select defaultValue="" onChange={(e) => { exec("fontSize", e.target.value); e.target.value = ""; }}>
-          {SIZES.map(s => <option key={s.label} value={s.value}>{s.label}</option>)}
-        </select>
-        <span className="tb-sep" />
-        {tbBtn(<b>B</b>,  "bold",          null, "Đậm (Ctrl+B)")}
-        {tbBtn(<i>I</i>,  "italic",        null, "Nghiêng (Ctrl+I)")}
-        {tbBtn(<u>U</u>,  "underline",     null, "Gạch chân (Ctrl+U)")}
-        {tbBtn(<s>S</s>,  "strikeThrough", null, "Gạch ngang")}
-        <span className="tb-sep" />
-        {tbBtn("• ≡", "insertUnorderedList", null, "Danh sách có dấu đầu dòng")}
-        <button title="Danh sách đánh số (bắt đầu từ 1)"
-          onMouseDown={(e) => { e.preventDefault(); orderedListNew(); }}>1. ≡</button>
-        {tbBtn("⇤",   "outdent",            null, "Giảm thụt (Shift+Tab)")}
-        {tbBtn("⇥",   "indent",             null, "Tăng thụt (Tab)")}
-        <span className="tb-sep" />
-        {tbBtn("❝",   "formatBlock", "blockquote", "Trích dẫn")}
-        {tbBtn("✕",   "removeFormat", null, "Xoá định dạng")}
-        <span className="tb-sep" />
-        <button className={"painter" + (painterOn ? " painter-on" : "")}
-          title="Chép định dạng: bấm rồi quét chọn vùng muốn dán. Bấm lại để huỷ."
-          onMouseDown={(e) => { e.preventDefault(); togglePainter(); }}>🖌</button>
-      </div>
-      <div
-        ref={ref}
-        className={"rich-editor" + (painterOn ? " painter-on" : "")}
-        contentEditable
-        suppressContentEditableWarning
-        spellCheck={false}
-        onInput={sync}
-        onKeyDown={onKeyDown}
-        onMouseDown={() => { if (painterOn) armed.current = true; }}
-        data-placeholder={placeholder || "Bắt đầu viết…"}
-      />
-    </>
+    <div className="rich-wrap">
+      <EditorToolbar editor={editor} onLink={openLink} />
+      <EditorContent editor={editor} />
+
+      {linkOpen && (
+        <div className="link-dialog-backdrop" onMouseDown={() => setLinkOpen(false)}>
+          <div className="link-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <label className="link-dialog-label">Liên kết</label>
+            <input ref={linkInputRef} className="input link-dialog-input"
+              placeholder="https://…" value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); applyLink(); }
+                if (e.key === "Escape") { e.preventDefault(); setLinkOpen(false); }
+              }} />
+            <div className="link-dialog-row">
+              {editor?.isActive("link") && (
+                <button className="btn ghost sm" onClick={removeLink}>Gỡ liên kết</button>
+              )}
+              <div style={{ flex: 1 }} />
+              <button className="btn ghost sm" onClick={() => setLinkOpen(false)}>Huỷ</button>
+              <button className="btn sm" onClick={applyLink}>Lưu</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
