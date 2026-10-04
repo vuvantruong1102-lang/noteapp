@@ -86,7 +86,10 @@ function PortalMenu({ anchorRef, open, onClose, children, width }) {
     // không tràn mép phải
     if (left + w > window.innerWidth - 8) left = window.innerWidth - 8 - w;
     if (left < 8) left = 8;
-    setPos({ top: r.bottom + 6, left, width: w });
+    // nếu nút nằm ở nửa dưới màn hình (toolbar ở đáy trên mobile) -> mở LÊN TRÊN
+    const openUp = r.top > window.innerHeight * 0.55;
+    if (openUp) setPos({ bottom: window.innerHeight - r.top + 6, left, width: w });
+    else setPos({ top: r.bottom + 6, left, width: w });
   }, [anchorRef, width]);
 
   useEffect(() => {
@@ -108,9 +111,11 @@ function PortalMenu({ anchorRef, open, onClose, children, width }) {
   }, [open, place, onClose, anchorRef]);
 
   if (!open || !pos) return null;
+  const style = pos.bottom != null
+    ? { position: "fixed", bottom: pos.bottom, left: pos.left, width: pos.width }
+    : { position: "fixed", top: pos.top, left: pos.left, width: pos.width };
   return createPortal(
-    <div ref={menuRef} className="tb-menu" role="menu"
-      style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width }}
+    <div ref={menuRef} className="tb-menu" role="menu" style={style}
       onMouseDown={(e) => e.preventDefault()}>
       {children}
     </div>,
