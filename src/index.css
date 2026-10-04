@@ -186,59 +186,66 @@ a { color: var(--accent-700); text-decoration: none; }
   margin: 0 0 7px; text-transform: uppercase; letter-spacing: .05em; }
 
 /* ====================== EDITOR ====================== */
-.editor-page { padding: 0; max-width: none; margin: 0; background: var(--surface-2); min-height: 100%; }
-.editor-bar  { display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 22px; margin: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.editor-page { padding: 0; max-width: none; margin: 0; background: var(--surface-2); min-height: 100%;
+  --bar-h: 52px; }
+/* Thanh trên cùng: Quay lại · Tiêu đề (ở giữa) · Trạng thái/Xoá — CỐ ĐỊNH khi cuộn */
+.editor-bar  { display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 10px 22px; margin: 0; background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20; }
+.editor-bar > .btn { flex: 0 0 auto; }
+.editor-bar-right { flex: 0 0 auto; }
+.editor-title {
+  flex: 1 1 auto; min-width: 0; padding: 4px 8px;
+  font-size: 20px; font-weight: 600; letter-spacing: -.015em; text-align: center;
+  border: none; outline: none; background: transparent; color: var(--text);
+}
+.editor-title::placeholder { color: var(--text-mute); font-weight: 500; }
 .editor-card { background: var(--surface); border: 1px solid var(--border);
   border-radius: 4px; overflow: visible; max-width: 1066px; margin: 24px auto 64px;
   box-shadow: 0 1px 3px rgba(0,0,0,.13), 0 1px 2px rgba(0,0,0,.08); }
-.editor-title {
-  width: 100%; padding: 24px 30px 8px;
-  font-size: 26px; font-weight: 600; letter-spacing: -.015em;
-  border: none; outline: none; background: transparent; color: var(--text);
-}
-.editor-title::placeholder { color: var(--text-mute); }
 
 /* ====================== TIPTAP TOOLBAR ====================== */
 .rich-wrap { position: relative; }
 
 .rich-toolbar {
   border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-  background: var(--surface-2); position: sticky; top: 0; z-index: 6;
+  background: var(--surface-2); position: sticky; top: var(--bar-h, 52px); z-index: 6;
 }
+/* 1 DÒNG DUY NHẤT: không wrap; icon nhỏ gọn; nếu màn quá hẹp mới cuộn ngang */
 .tb-scroll {
-  display: flex; align-items: center; gap: 3px 4px;
-  padding: 8px 14px; flex-wrap: wrap;            /* xuống nhiều dòng, không cuộn ngang */
-  row-gap: 6px;
+  display: flex; align-items: center; gap: 1px;
+  padding: 5px 10px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
 }
-.tb-group { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.tb-scroll::-webkit-scrollbar { height: 0; }
+.tb-group { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
 
-/* NÚT TO HƠN: 38x38, icon 18px */
+/* NÚT NHỎ GỌN: 30x30, icon 16px */
 .tb-btn {
-  min-width: 38px; height: 38px; padding: 0 8px; border-radius: 8px; flex: 0 0 auto;
+  min-width: 30px; height: 30px; padding: 0 5px; border-radius: 6px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--text-soft); background: transparent; border: none; cursor: pointer;
   transition: background .12s, color .12s;
 }
+.tb-btn svg { width: 16px; height: 16px; }
 .tb-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .tb-btn.is-active { background: var(--accent-tint); color: var(--accent-700); }
 .tb-btn:disabled { opacity: .38; cursor: default; }
 .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.tb-sep { width: 1px; height: 26px; background: var(--border); margin: 0 6px; flex: 0 0 auto; }
-/* ép xuống dòng 2 trong toolbar (flex-wrap) */
-.tb-break { flex-basis: 100%; height: 0; }
+.tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; flex: 0 0 auto; }
+.tb-break { display: none; }   /* bỏ ngắt dòng -> toolbar 1 hàng */
 
 .tb-dd { position: relative; flex: 0 0 auto; }
 .tb-select {
-  height: 38px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--border-strong);
+  height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--text); cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 4px; font-size: 13px;
 }
 .tb-select:hover { border-color: var(--text-mute); }
-.tb-select-sm .tb-select-txt { min-width: 22px; text-align: center; }
-.tb-select-txt { min-width: 62px; }
-.tb-select svg { color: var(--text-mute); }
+.tb-select-sm .tb-select-txt { min-width: 18px; text-align: center; }
+.tb-select-txt { min-width: 52px; }
+.tb-select svg { width: 11px; height: 11px; color: var(--text-mute); }
 .tb-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* MENU: render qua portal (position:fixed set inline) -> không bị khung cuộn cắt.
@@ -279,8 +286,9 @@ a { color: var(--accent-700); text-decoration: none; }
 
 /* ====================== THƯỚC CĂN LỀ ====================== */
 .ruler {
+  position: sticky; top: calc(var(--bar-h, 52px) + 40px); z-index: 5;  /* dưới bar + toolbar */
   background: var(--surface-2); border-bottom: 1px solid var(--border);
-  padding: 6px 54px;                              /* khớp padding ngang của editor */
+  padding: 5px 54px;                              /* khớp padding ngang của editor */
   display: flex; justify-content: center;
 }
 .ruler-track {
