@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
  * Chỉ áp cho đoạn/heading (ngoài list). Trong list thì ẩn hint, kéo vẫn set lề đoạn gần nhất.
  */
 const EM_PX = 16;      // 1em
-const MAX_EM = 32;
+const MAX_EM = 80;
 
 export default function Ruler({ editor }) {
   const trackRef = useRef(null);
@@ -20,11 +20,12 @@ export default function Ruler({ editor }) {
   // đọc lề của block hiện tại
   const readIndent = useCallback(() => {
     if (!editor) return;
-    const l = editor.getAttributes("paragraph").indentLeft ??
-              editor.getAttributes("heading").indentLeft ?? 0;
-    const r = editor.getAttributes("paragraph").indentRight ??
-              editor.getAttributes("heading").indentRight ?? 0;
-    if (!dragging.current) { setLeft(l || 0); setRight(r || 0); }
+    const pick = (attr) =>
+      editor.getAttributes("listItem")[attr] ||
+      editor.getAttributes("taskItem")[attr] ||
+      editor.getAttributes("paragraph")[attr] ||
+      editor.getAttributes("heading")[attr] || 0;
+    if (!dragging.current) { setLeft(pick("indentLeft")); setRight(pick("indentRight")); }
   }, [editor]);
 
   useEffect(() => {
@@ -40,7 +41,12 @@ export default function Ruler({ editor }) {
     if (!editor) return;
     const measure = () => {
       const dom = editor.view?.dom;
-      if (dom) setTrackW(dom.clientWidth);
+      if (!dom) return;
+      const cs = window.getComputedStyle(dom);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padR = parseFloat(cs.paddingRight) || 0;
+      // bề rộng cột chữ thực tế = clientWidth - padding 2 bên
+      setTrackW(Math.max(0, dom.clientWidth - padL - padR));
     };
     measure();
     window.addEventListener("resize", measure);
@@ -48,8 +54,6 @@ export default function Ruler({ editor }) {
     if (editor.view?.dom) ro.observe(editor.view.dom);
     return () => { window.removeEventListener("resize", measure); ro.disconnect(); };
   }, [editor]);
-
-  const maxPx = MAX_EM * EM_PX;
 
   const onDown = (which) => (e) => {
     e.preventDefault();
@@ -59,15 +63,17 @@ export default function Ruler({ editor }) {
       if (!track || !editor) return;
       const rect = track.getBoundingClientRect();
       const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      // cho kéo HẾT chiều rộng ô soạn thảo (trừ chừa 24px để 2 marker không chồng nhau)
+      const maxPx = Math.max(0, rect.width - 24);
       if (which === "left") {
         let px = clientX - rect.left;
-        px = Math.max(0, Math.min(maxPx, px));
+        px = Math.max(0, Math.min(maxPx - right * EM_PX, px));
         const em = Math.round((px / EM_PX) * 2) / 2; // bắt theo 0.5em
         setLeft(em);
         editor.chain().setBlockIndent(em).run();
       } else {
         let px = rect.right - clientX;
-        px = Math.max(0, Math.min(maxPx, px));
+        px = Math.max(0, Math.min(maxPx - left * EM_PX, px));
         const em = Math.round((px / EM_PX) * 2) / 2;
         setRight(em);
         editor.chain().setBlockIndentRight(em).run();

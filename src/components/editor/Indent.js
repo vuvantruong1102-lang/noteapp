@@ -11,7 +11,7 @@ import { Extension } from "@tiptap/core";
  * Trong list thì KHÔNG dùng extension này — RichEditor gọi sink/liftListItem.
  */
 const STEP = 2;    // 1 lần Tab = 2em
-const MAX = 32;    // trần (em)
+const MAX = 80;   // trần (em)
 
 function clamp(v) { return Math.max(0, Math.min(MAX, v)); }
 function emOf(style) { const n = parseFloat(style || "0"); return isNaN(n) ? 0 : n; }
@@ -20,7 +20,9 @@ export const Indent = Extension.create({
   name: "indent",
 
   addOptions() {
-    return { types: ["paragraph", "heading"] };
+    // gồm cả listItem/taskItem -> khi kéo ruler trong danh sách, CẢ SỐ THỨ TỰ
+    // và dấu đầu dòng cũng dịch theo (vì lề đặt trên <li>, không phải <p> bên trong).
+    return { types: ["paragraph", "heading", "listItem", "taskItem"] };
   },
 
   addGlobalAttributes() {
@@ -46,18 +48,29 @@ export const Indent = Extension.create({
   },
 
   addCommands() {
+    const LIST_ITEMS = ["listItem", "taskItem"];
     const edit = (fn) => ({ state, dispatch }) => {
       const { from, to } = state.selection;
       const { tr, doc } = state;
-      const types = this.options.types;
+      // 1) thu thập vị trí các listItem/taskItem trong vùng chọn
+      const listItemPositions = [];
+      doc.nodesBetween(from, to, (node, pos) => {
+        if (LIST_ITEMS.includes(node.type.name)) listItemPositions.push([pos, pos + node.nodeSize]);
+      });
+      const insideListItem = (pos) =>
+        listItemPositions.some(([s, e]) => pos > s && pos < e);
+
       let changed = false;
       doc.nodesBetween(from, to, (node, pos) => {
-        if (types.includes(node.type.name)) {
+        const name = node.type.name;
+        if (LIST_ITEMS.includes(name)) {
+          // đặt lề trên chính <li> -> số thứ tự / dấu đầu dòng dịch theo
           const next = fn(node.attrs);
-          if (next) {
-            tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...next });
-            changed = true;
-          }
+          if (next) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...next }); changed = true; }
+        } else if ((name === "paragraph" || name === "heading") && !insideListItem(pos)) {
+          // đoạn/heading ngoài list
+          const next = fn(node.attrs);
+          if (next) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...next }); changed = true; }
         }
       });
       if (changed && dispatch) dispatch(tr);
