@@ -67,10 +67,19 @@ export const Indent = Extension.create({
           // đặt lề trên chính <li> -> số thứ tự / dấu đầu dòng dịch theo
           const next = fn(node.attrs);
           if (next) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...next }); changed = true; }
-        } else if ((name === "paragraph" || name === "heading") && !insideListItem(pos)) {
-          // đoạn/heading ngoài list
-          const next = fn(node.attrs);
-          if (next) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...next }); changed = true; }
+        } else if (name === "paragraph" || name === "heading") {
+          if (insideListItem(pos)) {
+            // đoạn NẰM TRONG list: KHÔNG giữ lề riêng (nếu note cũ lỡ có margin trên <p>
+            // thì xoá đi) -> tránh chữ bị thụt kẹt không kéo thước về 0 được.
+            if ((node.attrs.indentLeft || 0) !== 0 || (node.attrs.indentRight || 0) !== 0) {
+              tr.setNodeMarkup(pos, undefined, { ...node.attrs, indentLeft: 0, indentRight: 0 });
+              changed = true;
+            }
+          } else {
+            // đoạn/heading ngoài list
+            const next = fn(node.attrs);
+            if (next) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...next }); changed = true; }
+          }
         }
       });
       if (changed && dispatch) dispatch(tr);
