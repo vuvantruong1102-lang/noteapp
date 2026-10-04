@@ -199,44 +199,149 @@ a { color: var(--accent-700); text-decoration: none; }
 }
 .editor-title::placeholder { color: var(--text-mute); }
 
+/* ====================== TIPTAP TOOLBAR ====================== */
+.rich-wrap { position: relative; }
+
 .rich-toolbar {
-  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
-  padding: 8px 14px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-  background: var(--surface-2); position: sticky; top: 0; z-index: 5;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: var(--surface-2); position: sticky; top: 0; z-index: 6;
 }
-.rich-toolbar button {
-  min-width: 32px; height: 32px; padding: 0 7px; border-radius: 6px;
+.tb-scroll {
+  display: flex; align-items: center; gap: 2px;
+  padding: 7px 12px; overflow-x: auto; overflow-y: visible;
+  scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+}
+.tb-scroll::-webkit-scrollbar { height: 5px; }
+.tb-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+.tb-group { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+
+.tb-btn {
+  min-width: 32px; height: 32px; padding: 0 6px; border-radius: 7px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  color: var(--text-soft); font-size: 13.5px; font-weight: 500;
+  color: var(--text-soft); background: transparent; border: none; cursor: pointer;
+  transition: background .12s, color .12s;
 }
-.rich-toolbar button:hover { background: var(--hover); color: var(--text); }
-.rich-toolbar select { height: 32px; border: 1px solid var(--border-strong); border-radius: 6px;
-  padding: 0 8px; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
-.tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.tb-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.tb-btn.is-active { background: var(--accent-tint); color: var(--accent-700); }
+.tb-btn:disabled { opacity: .38; cursor: default; }
+.tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.rich-editor {
-  min-height: 72vh; padding: 40px 54px; outline: none;
-  font-size: 16px; line-height: 1.85; color: var(--text);
-}
-.rich-editor:empty::before { content: attr(data-placeholder); color: var(--text-mute); pointer-events: none; }
-.rich-editor ul, .rich-editor ol { padding-left: 28px; margin: 8px 0; }
-.rich-editor li { margin: 2px 0; }
+.tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 5px; flex: 0 0 auto; }
 
-/* Đánh số liên tục toàn trình soạn thảo bằng CSS counter (chắc ăn, không cần JS) */
-.rich-editor { counter-reset: rt-ol; }
-.rich-editor ol { list-style: none; }
-.rich-editor ol > li { counter-increment: rt-ol; }
-.rich-editor ol > li::before {
-  content: counter(rt-ol) ". ";
-  display: inline-block; min-width: 1.5em; margin-left: -1.95em;
-  margin-right: .45em; text-align: right; color: inherit;
+/* dropdown nút kiểu select */
+.tb-dd { position: relative; flex: 0 0 auto; }
+.tb-select {
+  height: 32px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; font-size: 13px;
 }
-.rich-editor ol[data-ol-restart] { counter-reset: rt-ol; }
-.rich-editor blockquote { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--text-soft); margin: 12px 0; }
-.rich-editor font[size="1"] { font-size: 11px; } .rich-editor font[size="2"] { font-size: 13px; }
-.rich-editor font[size="3"] { font-size: 16px; } .rich-editor font[size="4"] { font-size: 18px; }
-.rich-editor font[size="5"] { font-size: 22px; } .rich-editor font[size="6"] { font-size: 26px; }
-.rich-editor font[size="7"] { font-size: 30px; font-weight: 600; }
+.tb-select:hover { border-color: var(--text-mute); }
+.tb-select-sm .tb-select-txt { min-width: 18px; text-align: center; }
+.tb-select-txt { min-width: 56px; }
+.tb-select svg { color: var(--text-mute); }
+.tb-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.tb-menu {
+  position: absolute; top: calc(100% + 6px); z-index: 30; min-width: 150px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 6px;
+}
+.tb-menu-left { left: 0; }
+.tb-mi {
+  display: block; width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px;
+  background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 14px;
+}
+.tb-mi:hover { background: var(--hover); }
+.tb-mi.is-active { background: var(--accent-tint); color: var(--accent-700); font-weight: 600; }
+.tb-mi-c { text-align: center; }
+.tb-h1 { font-size: 20px; font-weight: 700; }
+.tb-h2 { font-size: 17px; font-weight: 700; }
+.tb-h3 { font-size: 15px; font-weight: 600; }
+
+.tb-sizes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; min-width: 188px; }
+
+.tb-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 2px; }
+.tb-swatch {
+  width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(0,0,0,.14);
+}
+.tb-swatch:hover { transform: scale(1.08); }
+.tb-reset {
+  display: block; width: 100%; margin-top: 6px; padding: 7px 10px; border-radius: 6px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-soft);
+  cursor: pointer; font-size: 13px;
+}
+.tb-reset:hover { background: var(--hover); color: var(--text); }
+
+/* ====================== TIPTAP EDITOR BODY ====================== */
+.rich-editor.tiptap {
+  min-height: 68vh; padding: 36px 54px; outline: none;
+  font-size: 16px; line-height: 1.65; color: var(--text);
+  max-width: 820px; margin: 0 auto;
+}
+.rich-editor.tiptap:focus { outline: none; }
+.rich-editor.tiptap > * + * { margin-top: 2px; }
+.rich-editor.tiptap p { margin: 0 0 2px; }
+.rich-editor.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder); color: var(--text-mute);
+  float: left; height: 0; pointer-events: none;
+}
+.rich-editor.tiptap h1 { font-size: 32px; font-weight: 700; line-height: 1.25; margin: 22px 0 8px; }
+.rich-editor.tiptap h2 { font-size: 26px; font-weight: 700; line-height: 1.3; margin: 18px 0 6px; }
+.rich-editor.tiptap h3 { font-size: 21px; font-weight: 600; line-height: 1.35; margin: 14px 0 4px; }
+.rich-editor.tiptap h1:first-child,
+.rich-editor.tiptap h2:first-child,
+.rich-editor.tiptap h3:first-child { margin-top: 0; }
+
+.rich-editor.tiptap ul, .rich-editor.tiptap ol { padding-left: 26px; margin: 6px 0; }
+.rich-editor.tiptap li { margin: 2px 0; }
+.rich-editor.tiptap li > p { margin: 0; }
+
+.rich-editor.tiptap ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+.rich-editor.tiptap ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+.rich-editor.tiptap ul[data-type="taskList"] li > label { margin-top: 3px; user-select: none; }
+.rich-editor.tiptap ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.rich-editor.tiptap ul[data-type="taskList"] input[type="checkbox"] {
+  width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);
+}
+.rich-editor.tiptap ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--text-mute); }
+.rich-editor.tiptap ul[data-type="taskList"] li[data-checked="true"] > div p { text-decoration: line-through; }
+
+.rich-editor.tiptap blockquote {
+  border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; margin: 12px 0;
+  color: var(--text-soft); background: var(--surface-2); border-radius: 0 6px 6px 0;
+}
+.rich-editor.tiptap code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em;
+  background: var(--hover); padding: 1px 5px; border-radius: 4px;
+}
+.rich-editor.tiptap pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  padding: 12px 14px; border-radius: 8px; margin: 12px 0; overflow-x: auto; line-height: 1.5;
+}
+.rich-editor.tiptap pre code { background: none; padding: 0; font-size: inherit; }
+.rich-editor.tiptap hr {
+  border: none; border-top: 1px solid var(--border-strong); margin: 20px 0;
+}
+.rich-editor.tiptap a { color: var(--accent-700); text-decoration: underline; cursor: pointer; }
+.rich-editor.tiptap mark { border-radius: 2px; padding: 0 1px; }
+.rich-editor.tiptap:focus-visible { outline: none; }
+.rich-editor.tiptap .ProseMirror-selectednode { outline: 2px solid var(--accent); }
+
+/* ====================== LINK DIALOG ====================== */
+.link-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.28);
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh;
+}
+.link-dialog {
+  width: min(420px, 92vw); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow); padding: 16px;
+}
+.link-dialog-label { font-size: 12px; font-weight: 600; color: var(--text-mute);
+  text-transform: uppercase; letter-spacing: .05em; }
+.link-dialog-input { width: 100%; margin: 8px 0 12px; }
+.link-dialog-row { display: flex; align-items: center; gap: 8px; }
 
 .editor-meta { margin-top: 16px; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 18px 22px; display: flex; flex-direction: column; gap: 16px; }
@@ -283,7 +388,8 @@ a { color: var(--accent-700); text-decoration: none; }
   .page { padding: 22px 18px 48px; }
   .editor-page { padding: 0; }
   .editor-card { margin: 12px 10px 40px; }
-  .rich-editor { padding: 22px 20px; }
+  .rich-editor.tiptap { padding: 20px 18px; min-height: 60vh; }
+  .tb-scroll { padding: 6px 10px; }
   .zh-layout { grid-template-columns: 1fr; } .zh-aside { position: static; }
 }
 
@@ -436,10 +542,6 @@ a { color: var(--accent-700); text-decoration: none; }
   .app.nav-hidden .main { padding-left: 0; padding-top: 44px; }
   .nav-show { top: 8px; left: 10px; }
 }
-
-/* Chổi quét định dạng */
-.rich-toolbar button.painter-on { background: var(--accent-tint); color: var(--accent-700); }
-.rich-editor.painter-on { cursor: copy; }
 
 /* ====================== TO-DO v2 (mỗi dòng 1 ngày, accordion) ====================== */
 .todo-page { max-width: 880px; }
