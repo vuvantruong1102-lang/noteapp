@@ -292,7 +292,7 @@ a { color: var(--accent-700); text-decoration: none; }
 }
 /* hộp thước khớp CHÍNH XÁC cột soạn thảo: cùng max-width & padding ngang như .rich-editor.tiptap */
 .ruler-inner {
-  max-width: 820px; margin: 0 auto; padding: 0 54px;
+  max-width: none; margin: 0; padding: 0 28px;
 }
 .ruler-track {
   position: relative; height: 16px; width: 100%;
@@ -320,14 +320,14 @@ a { color: var(--accent-700); text-decoration: none; }
 .ruler-marker:hover::after { border-top-color: var(--accent); }
 
 @media (max-width: 640px) {
-  .ruler-inner { padding: 0 18px; }     /* khớp padding editor mobile */
+  .ruler-inner { padding: 0 16px; }     /* khớp padding editor mobile */
 }
 
 /* ====================== TIPTAP EDITOR BODY ====================== */
 .rich-editor.tiptap {
-  min-height: 68vh; padding: 36px 54px; outline: none;
+  min-height: 68vh; padding: 28px 28px; outline: none;
   font-size: 16px; line-height: 1.65; color: var(--text);
-  max-width: 820px; margin: 0 auto;
+  max-width: none; margin: 0;
 }
 .rich-editor.tiptap:focus { outline: none; }
 .rich-editor.tiptap > * + * { margin-top: 2px; }
@@ -440,7 +440,7 @@ a { color: var(--accent-700); text-decoration: none; }
   .page { padding: 22px 18px 48px; }
   .editor-page { padding: 0; }
   .editor-card { margin: 12px 10px 40px; }
-  .rich-editor.tiptap { padding: 20px 18px; min-height: 60vh; }
+  .rich-editor.tiptap { padding: 18px 16px; min-height: 60vh; }
   .tb-scroll { padding: 6px 10px; }
   .zh-layout { grid-template-columns: 1fr; } .zh-aside { position: static; }
 }
