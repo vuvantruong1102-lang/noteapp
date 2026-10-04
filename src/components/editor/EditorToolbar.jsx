@@ -153,7 +153,12 @@ export default function EditorToolbar({ editor, onLink, onPainterToggle, painter
     : editor.isActive("heading", { level: 3 }) ? "Tiêu đề 3"
     : "Văn bản";
 
-  const curSize = (editor.getAttributes("textStyle").fontSize || "").replace("px", "") || DEFAULT_SIZE;
+  const curSize =
+    (editor.getAttributes("textStyle").fontSize ||
+      editor.getAttributes("listItem").blockFontSize ||
+      editor.getAttributes("paragraph").blockFontSize ||
+      editor.getAttributes("heading").blockFontSize ||
+      "").replace("px", "") || DEFAULT_SIZE;
 
   const setHeading = (lvl) => {
     if (lvl === 0) editor.chain().focus().setParagraph().run();
@@ -268,7 +273,9 @@ export default function EditorToolbar({ editor, onLink, onPainterToggle, painter
               onClick={() => { editor.chain().focus().unsetHighlight().run(); close(); }}>Bỏ tô nền</button>
           </Dropdown>
         </div>
-        <Sep />
+
+        {/* ngắt xuống dòng 2 của thanh công cụ */}
+        <span className="tb-break" aria-hidden="true" />
 
         <div className="tb-group">
           <Btn title="Canh trái" active={editor.isActive({ textAlign: "left" })}
