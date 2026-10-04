@@ -16,13 +16,30 @@ import ChecklistInputRule from "./editor/ChecklistInputRule.js";
 import EditorToolbar from "./editor/EditorToolbar.jsx";
 import Ruler from "./editor/Ruler.jsx";
 
+/* Dọn margin-left/right bị "kẹt" trên <p>/<h*> NẰM TRONG <li> (do note cũ hoặc
+   bản build trước lỡ lưu). Lề của list item phải nằm trên <li>, không phải <p> con,
+   nếu không chữ sẽ thụt mà kéo thước không đưa về được. Chạy khi load HTML. */
+function stripLeakedListIndent(html) {
+  if (typeof document === "undefined") return html;
+  try {
+    const box = document.createElement("div");
+    box.innerHTML = html;
+    box.querySelectorAll("li p, li h1, li h2, li h3").forEach((el) => {
+      el.style.marginLeft = "";
+      el.style.marginRight = "";
+      if (!el.getAttribute("style")) el.removeAttribute("style");
+    });
+    return box.innerHTML;
+  } catch { return html; }
+}
+
 /* Note cũ có thể là plain text (không thẻ HTML). TipTap nhận HTML,
    nên ta bọc plain text thành <p> và giữ xuống dòng. HTML thì giữ nguyên. */
 function normalizeInitial(value) {
   const v = value || "";
   if (!v.trim()) return "";
   const looksHtml = /<\/?[a-z][\s\S]*>/i.test(v);
-  if (looksHtml) return v;
+  if (looksHtml) return stripLeakedListIndent(v);
   const esc = v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return esc
     .split(/\n{2,}/)
