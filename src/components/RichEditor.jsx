@@ -14,6 +14,7 @@ import FontSize from "./editor/FontSize.js";
 import Indent from "./editor/Indent.js";
 import ChecklistInputRule from "./editor/ChecklistInputRule.js";
 import EditorToolbar from "./editor/EditorToolbar.jsx";
+import Ruler from "./editor/Ruler.jsx";
 
 /* Note cũ có thể là plain text (không thẻ HTML). TipTap nhận HTML,
    nên ta bọc plain text thành <p> và giữ xuống dòng. HTML thì giữ nguyên. */
@@ -204,6 +205,7 @@ export default function RichEditor({ value, onChange, placeholder }) {
     <div className="rich-wrap">
       <EditorToolbar editor={editor} onLink={openLink}
         onPainterToggle={togglePainter} painterOn={painterOn} />
+      <Ruler editor={editor} />
       <EditorContent editor={editor} className={painterOn ? "painter-on" : undefined} />
 
       {linkOpen && (
