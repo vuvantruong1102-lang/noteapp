@@ -1,0 +1,31 @@
+CÁC FILE THAY ĐỔI / THÊM MỚI — copy đè vào đúng đường dẫn trong repo noteapp.
+
+== EDITOR (sửa toolbar + thụt dòng + chổi quét định dạng) ==
+ MỚI  src/components/editor/Indent.js            — extension thụt/lùi lề đoạn (margin-left), chỉ áp cho dòng/đoạn có con trỏ
+ SỬA  src/components/editor/EditorToolbar.jsx     — nút TO HƠN (38px); dropdown render qua portal nên KHÔNG bị khung cuộn cắt (fix màu chữ bị khuất); thêm nút thụt/lùi lề + nút chổi quét định dạng
+ SỬA  src/components/RichEditor.jsx               — thêm Indent; Tab/Shift+Tab (trong list thì nest/unnest, ngoài list thì thụt/lùi đoạn); thêm format painter
+ (giữ) src/components/editor/FontSize.js, ChecklistInputRule.js — kèm cho đủ bộ
+
+== PORT TRA/DỊCH TIẾNG TRUNG TỪ ZHDICT (y như zhdict) ==
+ SỬA  src/pages/Chinese.jsx       — bản mới (Nghĩa cốt lõi auto, accordion ChatGPT/Baike/汉典). Đã đổi bảng -> zhnote_searches
+ SỬA  src/pages/Translate.jsx     — bản mới (chia cụm + pinyin, bấm từ hiện bong bóng nghĩa). navigate -> /zh?w=
+ SỬA  src/pages/TranslateEn.jsx   — bản mới
+ SỬA  src/pages/History.jsx       — bản mới (lọc HSK/thành ngữ). Bảng zhnote_searches, navigate -> /zh?w=
+ SỬA  src/components/AskBox.jsx    — bản mới (hỏi đáp nhiều lượt)
+ SỬA  src/lib/api.js              — thêm api.core / api.gpt
+ MỚI  api/core.js                 — endpoint "Nghĩa cốt lõi"
+ MỚI  api/gpt.js                  — endpoint "ChatGPT" (collocation/cấu trúc/so sánh)
+ SỬA  api/ask.js, api/sentence.js — bản mới hơn từ zhdict
+
+== CSS & DEPS ==
+ SỬA  src/index.css   — toolbar to hơn + menu portal + cursor painter; THÊM style .chunk-flow/.cf-*/.wp-* cho trang Dịch
+ SỬA  package.json    — deps TipTap (nhớ chạy `npm install`)
+
+== XOÁ (không còn dùng) ==
+ api/examples.js, api/compounds.js  — endpoint cũ, bản Chinese mới không gọi nữa. Xoá 2 file này trong repo.
+
+== LƯU Ý ==
+- KHÔNG đổi database. Lịch sử tra tiếng Trung vẫn dùng bảng cũ zhnote_searches -> lịch sử cũ còn nguyên.
+- Route giữ nguyên: Ghi chú ở "/", Tra Tiếng Trung ở "/zh".
+- backup.js GIỮ NGUYÊN bản noteapp (vẫn sao lưu cả ghi chú).
+- Sau khi copy: `npm install` rồi `npm run build`.
