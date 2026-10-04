@@ -207,16 +207,17 @@ a { color: var(--accent-700); text-decoration: none; }
   background: var(--surface-2); position: sticky; top: 0; z-index: 6;
 }
 .tb-scroll {
-  display: flex; align-items: center; gap: 2px;
-  padding: 7px 12px; overflow-x: auto; overflow-y: visible;
+  display: flex; align-items: center; gap: 3px;
+  padding: 9px 14px; overflow-x: auto; overflow-y: hidden;
   scrollbar-width: thin; -webkit-overflow-scrolling: touch;
 }
-.tb-scroll::-webkit-scrollbar { height: 5px; }
+.tb-scroll::-webkit-scrollbar { height: 6px; }
 .tb-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
-.tb-group { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.tb-group { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
 
+/* NÚT TO HƠN: 38x38, icon 18px */
 .tb-btn {
-  min-width: 32px; height: 32px; padding: 0 6px; border-radius: 7px; flex: 0 0 auto;
+  min-width: 38px; height: 38px; padding: 0 8px; border-radius: 8px; flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--text-soft); background: transparent; border: none; cursor: pointer;
   transition: background .12s, color .12s;
@@ -226,52 +227,55 @@ a { color: var(--accent-700); text-decoration: none; }
 .tb-btn:disabled { opacity: .38; cursor: default; }
 .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 5px; flex: 0 0 auto; }
+.tb-sep { width: 1px; height: 26px; background: var(--border); margin: 0 6px; flex: 0 0 auto; }
 
-/* dropdown nút kiểu select */
 .tb-dd { position: relative; flex: 0 0 auto; }
 .tb-select {
-  height: 32px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--border-strong);
+  height: 38px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--text); cursor: pointer;
-  display: inline-flex; align-items: center; gap: 5px; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 6px; font-size: 14px;
 }
 .tb-select:hover { border-color: var(--text-mute); }
-.tb-select-sm .tb-select-txt { min-width: 18px; text-align: center; }
-.tb-select-txt { min-width: 56px; }
+.tb-select-sm .tb-select-txt { min-width: 22px; text-align: center; }
+.tb-select-txt { min-width: 62px; }
 .tb-select svg { color: var(--text-mute); }
 .tb-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* MENU: render qua portal (position:fixed set inline) -> không bị khung cuộn cắt.
+   z-index cao hơn toolbar & editor-card. */
 .tb-menu {
-  position: absolute; top: calc(100% + 6px); z-index: 30; min-width: 150px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  box-shadow: var(--shadow); padding: 6px;
+  z-index: 60;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 7px;
 }
-.tb-menu-left { left: 0; }
 .tb-mi {
-  display: block; width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px;
-  background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 14px;
+  display: block; width: 100%; text-align: left; padding: 9px 12px; border-radius: 7px;
+  background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 14.5px;
 }
 .tb-mi:hover { background: var(--hover); }
 .tb-mi.is-active { background: var(--accent-tint); color: var(--accent-700); font-weight: 600; }
 .tb-mi-c { text-align: center; }
-.tb-h1 { font-size: 20px; font-weight: 700; }
-.tb-h2 { font-size: 17px; font-weight: 700; }
-.tb-h3 { font-size: 15px; font-weight: 600; }
+.tb-h1 { font-size: 21px; font-weight: 700; }
+.tb-h2 { font-size: 18px; font-weight: 700; }
+.tb-h3 { font-size: 16px; font-weight: 600; }
 
-.tb-sizes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; min-width: 188px; }
+.tb-sizes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
 
-.tb-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 2px; }
+.tb-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; padding: 2px; }
 .tb-swatch {
-  width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
-  border: 1px solid rgba(0,0,0,.14);
+  width: 30px; height: 30px; border-radius: 7px; cursor: pointer;
+  border: 1px solid rgba(0,0,0,.14); transition: transform .1s;
 }
-.tb-swatch:hover { transform: scale(1.08); }
+.tb-swatch:hover { transform: scale(1.1); }
 .tb-reset {
-  display: block; width: 100%; margin-top: 6px; padding: 7px 10px; border-radius: 6px;
+  display: block; width: 100%; margin-top: 7px; padding: 8px 10px; border-radius: 7px;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text-soft);
-  cursor: pointer; font-size: 13px;
+  cursor: pointer; font-size: 13.5px;
 }
 .tb-reset:hover { background: var(--hover); color: var(--text); }
+
+/* con trỏ khi đang bật chổi quét định dạng */
+.painter-on .rich-editor.tiptap, .rich-editor.tiptap.painter-on { cursor: copy; }
 
 /* ====================== TIPTAP EDITOR BODY ====================== */
 .rich-editor.tiptap {
@@ -642,3 +646,77 @@ a { color: var(--accent-700); text-decoration: none; }
   cursor: pointer; min-width: 48px; transition: background .15s, border-color .15s; }
 .hsk-word:hover { background: var(--accent-tint); border-color: var(--accent); }
 .hsk-word .zh { font-size: 20px; }
+
+/* ===== PORT từ zhdict: câu chia cụm (pinyin) + bong bóng nghĩa ===== */
+
+/* ===== Câu gốc chia cụm nghĩa (có pinyin, click tra được) ===== */
+.chunk-flow {
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: 6px 0;                    /* mỗi token tự xuống dòng khi hết chỗ -> không tràn khung */
+  padding: 8px 0 4px;
+}
+.cf-tok {
+  display: inline-flex; flex-direction: column; align-items: center;
+  cursor: pointer; border-radius: 6px; padding: 2px 3px;
+  transition: background .12s; flex: 0 0 auto;
+}
+/* token đầu mỗi cụm: cách cụm trước một khoảng -> thấy ranh giới cụm.
+   Các token còn lại trong cụm (kể cả tên riêng) sát nhau. */
+.cf-tok.cf-chunk-start { margin-left: 16px; }
+.cf-tok.cf-chunk-start:first-child { margin-left: 0; }
+.cf-hz.zh { white-space: nowrap; }
+.cf-tok:hover { background: var(--surface-2); }
+.cf-hz { font-size: 24px; font-weight: 400; line-height: 1.15; }
+.cf-py { font-size: 12px; margin-top: 1px; opacity: .85; }
+.cf-punct { font-size: 24px; align-self: flex-end; color: var(--text-mute); }
+/* dấu câu ghép liền sau chữ Hán -> nằm sát tự nhiên */
+.cf-trail { color: var(--text-mute); }
+
+/* NAMED_ENTITY — tên riêng: đỏ đậm */
+.cf-entity .cf-hz { color: #dc143b; font-weight: 800; }
+.cf-entity .cf-py { color: #dc143b; font-weight: 700; opacity: 1; }
+
+/* LOGIC_CONNECTOR — từ nối logic: xanh lá đậm */
+.cf-logic .cf-hz { color: #1e7e34; font-weight: 800; }
+.cf-logic .cf-py { color: #1e7e34; font-weight: 700; opacity: 1; }
+
+/* GRAMMAR_PARTICLE — trợ từ (的地得了着过): tím đậm */
+.cf-particle .cf-hz { color: #8e44ad; font-weight: 800; }
+.cf-particle .cf-py { color: #8e44ad; font-weight: 700; opacity: 1; }
+
+/* gạch chân từ ghép 2-4 chữ Hán (chỉ gạch dưới chữ Hán, không gạch pinyin) */
+.cf-underline .cf-hz {
+  text-decoration: underline;
+  text-decoration-color: var(--text);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+/* Mobile: chữ nhỏ hơn, cụm sát hơn cho dễ nhìn, không xếp chồng */
+@media (max-width: 640px) {
+  .chunk-flow { gap: 4px 12px; }
+  .cf-hz { font-size: 19px; }
+  .cf-py { font-size: 10px; }
+  .cf-punct { font-size: 19px; }
+}
+
+/* ===== Bong bóng nghĩa cốt lõi (bấm từ trong câu Dịch) ===== */
+.wp-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.28);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.wp-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px; width: 420px; max-width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.wp-head { display: flex; align-items: center; justify-content: space-between; }
+.wp-close {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 16px; color: var(--text-mute); padding: 4px 8px; border-radius: 8px;
+}
+.wp-close:hover { background: var(--surface-2); }
+.wp-body { font-size: 15px; }
