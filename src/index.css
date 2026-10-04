@@ -288,19 +288,23 @@ a { color: var(--accent-700); text-decoration: none; }
 .ruler {
   position: sticky; top: calc(var(--bar-h, 52px) + 40px); z-index: 5;  /* dưới bar + toolbar */
   background: var(--surface-2); border-bottom: 1px solid var(--border);
-  padding: 5px 54px;                              /* khớp padding ngang của editor */
-  display: flex; justify-content: center;
+  padding: 6px 0;
+}
+/* hộp thước khớp CHÍNH XÁC cột soạn thảo: cùng max-width & padding ngang như .rich-editor.tiptap */
+.ruler-inner {
+  max-width: 820px; margin: 0 auto; padding: 0 54px;
 }
 .ruler-track {
-  position: relative; height: 18px; max-width: 820px; width: 100%;
-  border-radius: 4px; background:
+  position: relative; height: 16px; width: 100%;
+  border-radius: 3px; background:
     linear-gradient(var(--surface), var(--surface));
   border: 1px solid var(--border);
 }
 .ruler-tick { position: absolute; top: 50%; width: 1px; height: 6px;
   transform: translateY(-50%); background: var(--border-strong); opacity: .6; }
+/* marker: vùng bấm rộng 14x18 để dễ kéo, tam giác vẽ bằng ::after */
 .ruler-marker {
-  position: absolute; top: -2px; width: 0; height: 0; padding: 0;
+  position: absolute; top: -1px; width: 14px; height: 18px; padding: 0;
   background: transparent; border: none; cursor: ew-resize; z-index: 2;
 }
 .ruler-marker::after {
@@ -308,12 +312,15 @@ a { color: var(--accent-700); text-decoration: none; }
   border-left: 7px solid transparent; border-right: 7px solid transparent;
   border-top: 9px solid var(--accent-700);
 }
-.ruler-left::after  { left: -7px; }
-.ruler-right::after { right: -7px; }
+/* lề=0 -> tam giác nằm SÁT 2 đầu vạch thước (không lồi ra ngoài) */
+.ruler-left  { margin-left: 0; }
+.ruler-left::after  { left: 0; }
+.ruler-right { margin-right: 0; }
+.ruler-right::after { right: 0; }
 .ruler-marker:hover::after { border-top-color: var(--accent); }
 
 @media (max-width: 640px) {
-  .ruler { padding: 5px 18px; }     /* khớp editor mobile */
+  .ruler-inner { padding: 0 18px; }     /* khớp padding editor mobile */
 }
 
 /* ====================== TIPTAP EDITOR BODY ====================== */
