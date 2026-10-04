@@ -65,6 +65,8 @@ export default function Chinese() {
     setData(cached);
     const todo = Object.keys(NEEDS).filter((k) => !NEEDS[k](cached[k]));
     todo.forEach((k) => fetchSection(term, k));
+    // Chỉ Nghĩa cốt lõi tự tải ngay. Baike và ChatGPT chỉ tải khi người dùng bấm mở.
+    if (!cached.core || (cached.core.version || 0) < 1) fetchSection(term, "core");
   }
 
   // Tra tức thì (lookup) hoặc accordion (explain/zdic)
@@ -83,30 +85,6 @@ export default function Chinese() {
       setData((p) => ({ ...p, [key]: { __error: "Lỗi tải dữ liệu, thử lại sau." } }));
     } finally {
       setLoading((p) => ({ ...p, [key]: false }));
-    }
-  }
-
-  // Dịch nghĩa sang tiếng Việt (AI) — on demand
-  async function translateVi() {
-    if (!word) return;
-    const lk = data.lookup || {};
-    setLoading((p) => ({ ...p, vi: true }));
-    try {
-      const res = await api.translatevi(word, lk.definition_en || "", lk.han_viet || "");
-      setData((prev) => {
-        const nextLookup = {
-          ...prev.lookup,
-          meaning_vi: res.meaning_vi,
-          han_viet: res.han_viet || prev.lookup?.han_viet || null,
-        };
-        const next = { ...prev, lookup: nextLookup };
-        saveCache(word, next);
-        return next;
-      });
-    } catch (e) {
-      setData((prev) => ({ ...prev, lookup: { ...prev.lookup, meaning_vi: "⚠ Lỗi dịch, thử lại." } }));
-    } finally {
-      setLoading((p) => ({ ...p, vi: false }));
     }
   }
 
@@ -141,8 +119,8 @@ export default function Chinese() {
               <div className="card card-pad fade-in">
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
                   <div className="row" style={{ alignItems: "baseline", gap: 14 }}>
-                    <span className="zh" style={{ fontSize: 42, fontWeight: 500 }}>{word}</span>
-                    <span style={{ color: "var(--accent-700)", fontWeight: 600, fontSize: 19 }}>
+                    <span className="zh" style={{ fontSize: 126, fontWeight: 500, lineHeight: 1.05 }}>{word}</span>
+                    <span style={{ color: "var(--accent-700)", fontWeight: 600, fontSize: 28 }}>
                       {pinyin(word, { toneType: "symbol" })}
                     </span>
                   </div>
@@ -150,35 +128,31 @@ export default function Chinese() {
                 </div>
               </div>
 
-              <Section title="Phồn thể · Pinyin · Hán Việt · Nghĩa"
-                loading={loading.lookup} onRefresh={() => fetchSection(word, "lookup")}>
+              <div className="card card-pad fade-in">
                 <LookupBody d={data.lookup} word={word}
-                  hanVietLocal={hanVietFn ? hanVietFn(word) : null}
-                  onTranslateVi={translateVi} viLoading={loading.vi} />
-              </Section>
+                  hanVietLocal={hanVietFn ? hanVietFn(word) : null} />
+              </div>
 
-              <Accordion title="Đặt câu ví dụ"
-                loaded={!!data.examples} loading={loading.examples}
-                onLoad={() => fetchSection(word, "examples")}
-                onRefresh={() => fetchSection(word, "examples")}>
-                <ExamplesBody d={data.examples} />
+              {/* Nghĩa cốt lõi — tự tải ngay */}
+              <div className="card card-pad fade-in">
+                <CoreMeaning d={data.core} loading={loading.core} />
+              </div>
+
+              <Accordion title="ChatGPT"
+                loaded={!!data.gpt && (data.gpt.__error || (data.gpt.version || 0) >= 8)} loading={loading.gpt}
+                onLoad={() => fetchSection(word, "gpt")}
+                onRefresh={() => fetchSection(word, "gpt")}>
+                <GptBody d={data.gpt} onPick={(w) => lookup(w)} />
               </Accordion>
 
-              <Accordion title="Từ ghép thường gặp"
-                loaded={!!data.compounds} loading={loading.compounds}
-                onLoad={() => fetchSection(word, "compounds")}
-                onRefresh={() => fetchSection(word, "compounds")}>
-                <CompoundsBody d={data.compounds} onPick={(w) => lookup(w)} />
-              </Accordion>
-
-              <Accordion title="Giải thích — Baidu Baike"
+              <Accordion title="Baidu Baike"
                 loaded={!!data.explain && (data.explain.__error || (data.explain.version || 0) >= 5)} loading={loading.explain}
                 onLoad={() => fetchSection(word, "explain")}
                 onRefresh={() => fetchSection(word, "explain")}>
                 <ExplainBody d={data.explain} />
               </Accordion>
 
-              <Accordion title="Giải thích — zdic.net (汉典)"
+              <Accordion title="汉典"
                 loaded={!!data.zdic} loading={loading.zdic}
                 onLoad={() => fetchSection(word, "zdic")}
                 onRefresh={() => fetchSection(word, "zdic")}>
@@ -298,85 +272,149 @@ const refreshStyle = {
   border: "none", background: "transparent",
 };
 
-function LookupBody({ d, word, hanVietLocal, onTranslateVi, viLoading }) {
+function LookupBody({ d, word, hanVietLocal }) {
   if (!d) return <div className="muted tiny">Đang tra…</div>;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
+  const hanviet = hanVietLocal || d.han_viet;
+  const traditional = d.traditional || word;
+  const sameAsSimplified = traditional === word;
   return (
-    <div className="stack">
-      {d.traditional && (
-        <div><b>Phồn thể:</b> <span className="zh" style={{ fontSize: 18 }}>{d.traditional}</span>
-          {d.traditional === word && <span className="tiny muted"> (giản thể và phồn thể giống nhau)</span>}
-        </div>
-      )}
-      <div><b>Pinyin:</b> <span style={{ color: "var(--accent-700)" }}>{pinyin(word, { toneType: "symbol" })}</span></div>
-      <div><b>Hán Việt:</b> {hanVietLocal || d.han_viet || "—"}</div>
-
-      {d.definition_en && (
-        <div>
-          <b>Nghĩa (Anh):</b>
-          <div style={{ whiteSpace: "pre-wrap", marginTop: 2 }}>{d.definition_en}</div>
-        </div>
-      )}
-
-      {d.meaning_vi ? (
-        <div><b>Nghĩa (Việt):</b> {d.meaning_vi}</div>
-      ) : (
-        <div>
-          <button className="btn ghost sm" onClick={onTranslateVi} disabled={viLoading}
-            title="Gọi AI dịch sang tiếng Việt (~2 VND). Sau đó cache miễn phí.">
-            {viLoading ? "Đang dịch…" : (d.definition_en ? "▾ Dịch nghĩa sang tiếng Việt (AI)" : "▾ Lấy nghĩa tiếng Việt (AI)")}
-          </button>
-          {!d.in_cedict && (
-            <div className="tiny muted" style={{ marginTop: 6 }}>
-              Không có trong CC-CEDICT — AI sẽ tự tạo nghĩa khi bạn bấm.
-            </div>
-          )}
-        </div>
-      )}
-
-      {(d.in_cedict || d.han_viet) && (
-        <div className="tiny muted" style={{ marginTop: 2 }}>
-          Nguồn: {d.in_cedict && "CC-CEDICT"}{d.in_cedict && d.han_viet && " · "}{d.han_viet && "Wiktionary"}
-        </div>
-      )}
+    <div className="row" style={{ flexWrap: "wrap", alignItems: "baseline", gap: "6px 18px", rowGap: 6 }}>
+      <span><b>Phồn thể:</b> <span className="zh" style={{ fontSize: 18, color: "#8e44ad" }}>{traditional}</span>
+        {sameAsSimplified && <span className="tiny muted"> (giống giản thể)</span>}</span>
+      {hanviet && <span><b>Hán Việt:</b> <span style={{ color: "#c0392b", fontWeight: 600 }}>{hanviet}</span></span>}
+      {d.definition_en && <span><b>Nghĩa (Anh):</b> <span style={{ color: "#2471a3" }}>{d.definition_en}</span></span>}
     </div>
   );
 }
 
-function ExamplesBody({ d }) {
-  if (!d) return null;
+// Nghĩa cốt lõi — lấy nội dung "AI giải thích" (từ endpoint explain/Baike)
+function CoreMeaning({ d, loading }) {
+  if (!d || (loading && !d.core_vi)) return <div className="muted tiny">Đang tải nghĩa cốt lõi…</div>;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
-  if (!d.examples?.length) return <div className="muted tiny">Không có ví dụ.</div>;
+  if (!d.core_vi) return <div className="muted tiny">Không có dữ liệu.</div>;
   return (
-    <div className="stack">
-      {d.examples.map((ex, i) => (
-        <div key={i} className="card card-pad stack" style={{ background: "var(--surface-2)", gap: 2 }}>
-          <div className="zh" style={{ fontSize: 18 }}>{ex.zh}</div>
-          <div className="tiny" style={{ color: "var(--accent-700)" }}>{ex.pinyin}</div>
-          <div>{ex.vi}</div>
-        </div>
-      ))}
+    <div>
+      <div className="field-label" style={{ margin: 0, color: "#dc143b" }}>✦ Nghĩa cốt lõi</div>
+      <div style={{ marginTop: 6, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{d.core_vi}</div>
     </div>
   );
 }
 
-function CompoundsBody({ d, onPick }) {
+function GptBody({ d, onPick }) {
   if (!d) return null;
   if (d.__error) return <div style={{ color: "#c2185b" }}>{d.__error}</div>;
-  if (!d.compounds?.length) return <div className="muted tiny">Không có từ ghép.</div>;
+  const collocations = d.collocations || [];
+  const structures = d.structures || [];
+  const compare = d.compare || [];
+
   return (
-    <div className="stack">
-      {d.compounds.map((c, i) => (
-        <div key={i} className="row" style={{ justifyContent: "space-between", alignItems: "baseline", gap: 12,
-          padding: "6px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
-          <div className="row" style={{ alignItems: "baseline", gap: 8, flexShrink: 0 }}>
-            <span className="zh" style={{ fontSize: 18, cursor: "pointer", color: "var(--accent-700)" }}
-              onClick={() => onPick(c.word)} title="Bấm để tra từ này">{c.word}</span>
-            <span className="tiny" style={{ color: "var(--accent-700)" }}>{c.pinyin}</span>
+    <div className="stack" style={{ gap: 18 }}>
+      {/* Collocation phổ biến — mỗi collocation kèm 1 ví dụ ngay dưới */}
+      {collocations.length > 0 && (
+        <div>
+          <p className="field-label" style={{ margin: "0 0 6px" }}>🔗 Collocation phổ biến</p>
+          <div className="card card-pad stack" style={{ background: "var(--surface-2)", gap: 0 }}>
+            {collocations.map((c, i) => (
+              <div key={i} style={{ padding: "10px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
+                {/* dòng collocation — đậm, nổi bật */}
+                <div style={{ lineHeight: 1.5 }}>
+                  <span className="zh" style={{ fontSize: 17, fontWeight: 700 }}>{c.zh}</span>
+                  <span style={{ color: "var(--accent-700)", fontWeight: 600 }}> / {c.pinyin}</span>
+                  <span style={{ fontWeight: 600 }}> / {c.vi}</span>
+                </div>
+                {c.note_vi && (
+                  <div className="tiny muted" style={{ marginTop: 2, fontStyle: "italic" }}>{c.note_vi}</div>
+                )}
+                {/* ví dụ — thụt lề, viền trái, chữ nhạt hơn để phân biệt */}
+                {Array.isArray(c.examples) && c.examples.length > 0 && (
+                  <div style={{ marginTop: 5, marginLeft: 12, paddingLeft: 12,
+                    borderLeft: "3px solid var(--accent)" }}>
+                    {c.examples.map((ex, k) => (
+                      <div key={k} style={{ lineHeight: 1.5, marginTop: k ? 6 : 0 }}>
+                        <span className="zh" style={{ color: "#dc143b", fontSize: 17 }}>{ex.zh}</span>
+                        {ex.pinyin && <span style={{ fontSize: 13, fontStyle: "italic", color: "var(--text)" }}> / {ex.pinyin}</span>}
+                        {ex.vi && <span style={{ fontSize: 13, fontStyle: "italic", color: "var(--text)" }}> / {ex.vi}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-          <span style={{ textAlign: "right" }}>{c.vi}</span>
         </div>
-      ))}
+      )}
+
+      {/* Cấu trúc — tất cả trong 1 ô, mỗi cấu trúc + 1 ví dụ gộp dòng */}
+      {structures.length > 0 && (
+        <div>
+          <p className="field-label" style={{ margin: "0 0 6px" }}>🏗️ Cấu trúc thường gặp</p>
+          <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
+            {structures.map((s, i) => (
+              <div key={i} style={{ padding: "9px 0", borderTop: i ? "1px solid var(--border)" : "none", lineHeight: 1.55 }}>
+                <div>
+                  <span className="zh" style={{ fontWeight: 600 }}>{s.pattern}</span>
+                  {s.pinyin && <span style={{ color: "var(--accent-700)" }}> / {s.pinyin}</span>}
+                  {s.vi && <span> / {s.vi}</span>}
+                </div>
+                {s.example_zh && (
+                  <div style={{ marginTop: 2, color: "var(--text-mute)" }}>
+                    → <span className="zh">{s.example_zh}</span>
+                    {s.example_pinyin && <span style={{ color: "var(--accent-700)" }}> / {s.example_pinyin}</span>}
+                    {s.example_vi && <span> / {s.example_vi}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Phân biệt từ gần nghĩa — mỗi từ 1 ô: nghĩa, khác biệt, 3 collocation, 2 ví dụ */}
+      {compare.length > 0 && (
+        <div>
+          <p className="field-label" style={{ margin: "0 0 6px" }}>⚖️ Phân biệt với từ gần nghĩa</p>
+          <div className="stack" style={{ gap: 10 }}>
+            {compare.map((c, i) => (
+              <div key={i} className="card card-pad stack" style={{ background: "var(--surface-2)", gap: 6 }}>
+                <div className="row" style={{ alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                  <span className="zh" style={{ fontSize: 19, cursor: "pointer", color: "var(--accent-700)" }}
+                    onClick={() => onPick(c.word)} title="Bấm để tra từ này">{c.word}</span>
+                  <span className="tiny" style={{ color: "var(--accent-700)" }}>{c.pinyin}</span>
+                  {c.vi && <span style={{ fontWeight: 600 }}>· {c.vi}</span>}
+                </div>
+                {c.diff_vi && <div style={{ lineHeight: 1.55 }}>{c.diff_vi}</div>}
+
+                {Array.isArray(c.collocations) && c.collocations.length > 0 && (
+                  <div>
+                    <div className="tiny" style={{ fontWeight: 600, color: "var(--text-mute)", marginBottom: 2 }}>Collocation</div>
+                    {c.collocations.map((cc, k) => (
+                      <div key={k} style={{ lineHeight: 1.5 }}>
+                        <span className="zh" style={{ fontSize: 15 }}>{cc.zh}</span>
+                        {cc.pinyin && <span style={{ color: "var(--accent-700)" }}> / {cc.pinyin}</span>}
+                        {cc.vi && <span> / {cc.vi}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {Array.isArray(c.examples) && c.examples.length > 0 && (
+                  <div>
+                    <div className="tiny" style={{ fontWeight: 600, color: "var(--text-mute)", marginBottom: 2 }}>Ví dụ</div>
+                    {c.examples.map((ce, k) => (
+                      <div key={k} style={{ lineHeight: 1.5 }}>
+                        <span className="zh">{ce.zh}</span>
+                        {ce.pinyin && <span style={{ color: "var(--accent-700)" }}> / {ce.pinyin}</span>}
+                        {ce.vi && <span> / {ce.vi}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -388,14 +426,6 @@ function ExplainBody({ d }) {
   const hasBaike = d.source === "baidu_baike";
   return (
     <div className="stack">
-      {/* AI giải thích — luôn hiển thị */}
-      <p className="field-label" style={{ margin: 0 }}>🤖 AI giải thích</p>
-      {d.ai_explain_vi
-        ? <div style={{ whiteSpace: "pre-wrap" }}>{d.ai_explain_vi}</div>
-        : <div className="muted tiny">Chưa có giải thích từ AI.</div>}
-
-      <div className="divider" />
-
       {/* Nội dung Baidu Baike */}
       {hasBaike
         ? <span className="badge tieng_trung">Nguồn: Baidu Baike</span>

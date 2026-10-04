@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { pinyin } from "pinyin-pro";
 import { api } from "../lib/api.js";
-import { supabase } from "../lib/supabase.js";
-import { useAuth } from "../context/AuthContext.jsx";
 import Spinner from "../components/Spinner.jsx";
 import AskBox from "../components/AskBox.jsx";
 
 const hasHan = (s) => /[\u4e00-\u9fff]/.test(s || "");
+
+
+
 
 // Tách văn bản dài thành từng câu (tránh timeout). Cắt theo dấu câu tiếng Trung;
 // câu nào vẫn quá dài thì cắt tiếp theo dấu phẩy.
@@ -30,18 +31,29 @@ function splitSentences(t) {
 }
 
 export default function Translate() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const [res, setRes] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [progress, setProgress] = useState(null);
-  const [hanVietFn, setHanVietFn] = useState(null);
-  useEffect(() => { import("../lib/hanviet.js").then((m) => setHanVietFn(() => m.hanVietOf)); }, []);
 
-  function clearText() { setText(""); setRes(null); setSaved(false); }
+  const [pop, setPop] = useState(null); // { word, core, loading }
 
+  function clearText() { setText(""); setRes(null); setPop(null); }
+
+  // Click từ -> hiện bong bóng nghĩa cốt lõi tại chỗ
+  async function showPopup(w, ev) {
+    const word = (w || "").trim();
+    if (!hasHan(word)) return;
+    ev?.stopPropagation?.();
+    setPop({ word, core: null, loading: true });
+    try {
+      const r = await api.core(word);
+      setPop((p) => (p && p.word === word ? { ...p, core: r.core_vi || "(không có dữ liệu)", loading: false } : p));
+    } catch {
+      setPop((p) => (p && p.word === word ? { ...p, core: "Lỗi tải, thử lại.", loading: false } : p));
+    }
+  }
   function lookupWord(w) {
     if (hasHan(w)) navigate(`/zh?w=${encodeURIComponent(w.trim())}`);
   }
@@ -50,16 +62,19 @@ export default function Translate() {
     const full = text.trim();
     if (!full) return;
     if (!hasHan(full)) { setRes({ __error: "Chưa thấy chữ Hán nào — kiểm tra lại nội dung." }); return; }
-    setLoading(true); setRes(null); setSaved(false); setProgress(null);
+    setLoading(true); setRes(null); setProgress(null);
     const chunks = splitSentences(full);
     try {
-      const sentences = [];
+      let allChunks = [];
+      let allTrans = [];
       for (let i = 0; i < chunks.length; i++) {
         if (chunks.length > 1) setProgress({ i: i + 1, n: chunks.length });
         const r = await api.sentence(chunks[i]);
-        sentences.push({ chinese: chunks[i], tokens: r.tokens || [], translation_vi: r.translation_vi || "" });
+        allChunks = allChunks.concat(r.chunks || []);
+        if (r.translation_vi) allTrans.push(r.translation_vi);
       }
-      setRes({ text: full, sentences });
+      // Gộp tất cả thành một kết quả liền mạch (không chia câu 1, câu 2...)
+      setRes({ text: full, sentences: [{ chinese: full, chunks: allChunks, translation_vi: allTrans.join(" ") }] });
     } catch (e) {
       setRes({ __error: "Không phân tích được. Nếu văn bản quá dài, hãy thử đoạn ngắn hơn rồi phân tích lại." });
     } finally {
@@ -67,20 +82,12 @@ export default function Translate() {
     }
   }
 
-  async function saveNote() {
-    if (!res || res.__error) return;
-    const body = res.sentences.map((s) => `${s.chinese}\n【Dịch】 ${s.translation_vi}`).join("\n\n");
-    await supabase.from("zhnote_notes").insert({
-      user_id: user.id, category: "tieng_trung", title: text.trim().slice(0, 30), content: body });
-    setSaved(true);
-  }
-
   return (
     <div className="page" style={{ maxWidth: 920 }}>
       <div className="page-head">
         <div>
           <h1 className="page-title">Dịch tiếng Trung</h1>
-          <p className="page-sub">Dán câu (hoặc cả đoạn) tiếng Trung. Mỗi từ hiện pinyin · Hán · Hán Việt · nghĩa; phía dưới là bản dịch cả câu. Bấm vào từ để tra chi tiết.</p>
+
         </div>
       </div>
 
@@ -107,35 +114,93 @@ export default function Translate() {
             {res.sentences.map((s, si) => (
               <div key={si} className="card card-pad stack">
                 {res.sentences.length > 1 && <p className="field-label" style={{ margin: 0 }}>Câu {si + 1}</p>}
-                <div className="tok-wrap">
-                  {s.tokens.map((t, i) => {
-                    if (!hasHan(t.token)) return <span key={i} className="tok-punct zh">{t.token}</span>;
-                    const py = t.pinyin || pinyin(t.token, { toneType: "symbol" });
-                    const hv = hanVietFn ? hanVietFn(t.token) : "";
-                    return (
-                      <span key={i} className="tok clickable" onClick={() => lookupWord(t.token)} title="Bấm để tra chi tiết">
-                        <span className="tok-py">{py}</span>
-                        <span className="tok-hz zh">{t.token}</span>
-                        <span className="tok-hv">{hv}</span>
-                        <span className="tok-mn">{t.meaning_vi}</span>
-                      </span>
-                    );
-                  })}
-                </div>
+
+                {/* Bản dịch tiếng Việt — lên trên */}
                 <div className="tok-trans"><b>Dịch:</b> {s.translation_vi}</div>
+
+                {/* Câu gốc: các token chảy tự do (tự xuống dòng từng chữ, không tràn khung).
+                    Token ĐẦU mỗi cụm có khoảng cách lớn hơn -> thấy ranh giới cụm.
+                    Chữ trong cùng cụm (và tên riêng) sát nhau. */}
+                {Array.isArray(s.chunks) && s.chunks.length > 0 && (
+                  <div className="chunk-flow">
+                    {(() => {
+                      // Làm phẳng token; dấu câu được GHÉP vào cuối chữ Hán của token ngay trước
+                      // để nó dính tự nhiên, không thành ô riêng gây hở hai bên.
+                      const flat = [];
+                      s.chunks.forEach((ch) =>
+                        (ch.tokens || []).forEach((t, ti) => flat.push({ t, chunkStart: ti === 0 })));
+                      const isPunct = (x) => {
+                        const h = (x || "").trim();
+                        return h && !hasHan(h) && !/[A-Za-z0-9]/.test(h);
+                      };
+                      // Gắn mỗi dấu câu vào token chữ gần nhất phía trước
+                      const render = [];
+                      flat.forEach((item) => {
+                        if (isPunct(item.t.hz) && render.length > 0) {
+                          render[render.length - 1].trail = (render[render.length - 1].trail || "") + item.t.hz;
+                        } else {
+                          render.push({ ...item, trail: "" });
+                        }
+                      });
+                      return render.map((item, idx) => {
+                        const t = item.t;
+                        const hz = (t.hz || "").trim();
+                        // Dấu câu đứng đầu (không có token trước) -> hiển thị trơn
+                        if (isPunct(hz)) return <span key={idx} className="cf-punct zh">{t.hz}{item.trail}</span>;
+                        const py = hasHan(hz) ? (t.pinyin || pinyin(hz, { toneType: "symbol" })) : (t.pinyin || "");
+                        // Màu theo nhãn hl: entity=đỏ, logic=xanh, particle=tím
+                        const cls = t.hl === "entity" ? " cf-entity"
+                          : t.hl === "logic" ? " cf-logic"
+                          : t.hl === "particle" ? " cf-particle" : "";
+                        // Gạch chân từ ghép 2-4 chữ Hán
+                        const hanLen = (hz.match(/[\u4e00-\u9fff]/g) || []).length;
+                        const underline = hanLen >= 2 && hanLen <= 4 ? " cf-underline" : "";
+                        // Token entity liền ngay sau một entity -> sát nhau (cùng tên riêng)
+                        const prev = render[idx - 1]?.t;
+                        const tightWithPrev = t.hl === "entity" && prev && prev.hl === "entity";
+                        // Token đứng ngay sau token có dấu câu kết thúc -> không thêm khoảng cách
+                        const afterPunct = (render[idx - 1]?.trail || "") !== "";
+                        const chunkStart = item.chunkStart && !tightWithPrev && !afterPunct ? " cf-chunk-start" : "";
+                        return (
+                          <span key={idx}
+                            className={"cf-tok" + cls + underline + chunkStart}
+                            onClick={(e) => showPopup(hz, e)}
+                            title={t.meaning_vi || ""}>
+                            <span className="cf-hz zh">{t.hz}<span className="cf-trail">{item.trail}</span></span>
+                            <span className="cf-py">{py || "\u00a0"}</span>
+                          </span>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
+
                 <AskBox context={`Câu tiếng Trung: "${s.chinese}" — Bản dịch: ${s.translation_vi}`}
                   placeholder="Hỏi về câu này…" />
               </div>
             ))}
-
-            <button className="btn ghost" onClick={saveNote} disabled={saved} style={{ alignSelf: "flex-start" }}>
-              {saved ? "✓ Đã lưu vào Ghi chú" : "💾 Lưu vào ghi chú (Tiếng Trung)"}
-            </button>
           </div>
         )}
 
         {res?.__error && <div className="card card-pad" style={{ color: "#d4537e" }}>{res.__error}</div>}
       </div>
+
+      {/* Bong bóng nghĩa cốt lõi khi bấm từ trong câu */}
+      {pop && (
+        <div className="wp-overlay" onClick={() => setPop(null)}>
+          <div className="wp-card" onClick={(e) => e.stopPropagation()}>
+            <div className="wp-head">
+              <span className="zh" style={{ fontSize: 24, fontWeight: 600 }}>{pop.word}</span>
+              <button className="wp-close" onClick={() => setPop(null)} aria-label="Đóng">✕</button>
+            </div>
+            <div className="wp-body">
+              {pop.loading ? <span className="muted tiny">Đang tải nghĩa…</span>
+                : <span style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{pop.core}</span>}
+            </div>
+            <button className="btn sm block" onClick={() => lookupWord(pop.word)}>Tra chi tiết →</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

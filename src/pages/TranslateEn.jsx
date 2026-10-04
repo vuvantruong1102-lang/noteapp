@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { api } from "../lib/api.js";
-import { supabase } from "../lib/supabase.js";
-import { useAuth } from "../context/AuthContext.jsx";
 import Spinner from "../components/Spinner.jsx";
 
 const clearBtn = {
@@ -12,30 +10,18 @@ const clearBtn = {
 };
 
 export default function TranslateEn() {
-  const { user } = useAuth();
   const [text, setText] = useState("");
   const [res, setRes] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
 
-  function clearText() { setText(""); setRes(null); setSaved(false); }
+  function clearText() { setText(""); setRes(null); }
 
   async function analyze() {
     if (!text.trim()) return;
-    setLoading(true); setRes(null); setSaved(false);
+    setLoading(true); setRes(null);
     try { setRes(await api.sentenceEn(text.trim())); }
     catch (e) { setRes({ __error: "Không phân tích được, kiểm tra lại đoạn tiếng Anh." }); }
     finally { setLoading(false); }
-  }
-
-  async function saveNote() {
-    if (!res || res.__error) return;
-    const body =
-      `${text.trim()}\n\n【Dịch】 ${res.translation_vi}\n\n【Ngữ pháp】 ${res.explanation_vi || ""}\n\n【Từ/cụm từ】\n` +
-      (res.new_words || []).map((w) => `• ${w.word}${w.ipa ? " " + w.ipa : ""}: ${w.meaning_vi}`).join("\n");
-    await supabase.from("zhnote_notes").insert({
-      user_id: user.id, category: "hoc_tap", title: text.trim().slice(0, 30), content: body });
-    setSaved(true);
   }
 
   return (
@@ -101,10 +87,6 @@ export default function TranslateEn() {
                 ))}
               </div>
             )}
-
-            <button className="btn ghost" onClick={saveNote} disabled={saved} style={{ alignSelf: "flex-start" }}>
-              {saved ? "✓ Đã lưu vào Ghi chú" : "💾 Lưu vào ghi chú (Học tập)"}
-            </button>
           </div>
         )}
 
