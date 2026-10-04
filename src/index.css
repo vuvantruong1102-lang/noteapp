@@ -768,3 +768,87 @@ a { color: var(--accent-700); text-decoration: none; }
 }
 .wp-close:hover { background: var(--surface-2); }
 .wp-body { font-size: 15px; }
+
+/* ============================================================
+   MOBILE — GIAO DIỆN TỐI GIẢN KIỂU APPLE NOTES (chỉ ≤640px)
+   Desktop không bị ảnh hưởng.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* ---------- DANH SÁCH GHI CHÚ: sạch, thoáng ---------- */
+  .page { padding: 14px 14px 90px; background: var(--surface-2); }
+  .page-head { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; }
+  .page-title { font-size: 30px; font-weight: 800; letter-spacing: -.03em; }
+  .page-sub { font-size: 14px; }
+  /* ẩn nút đổi lưới/danh sách cho gọn; luôn dùng 1 cột kiểu danh sách thẻ */
+  .page-head .view-toggle { display: none; }
+  .page-head .row { justify-content: flex-start; }
+
+  /* gom mọi note thành 1 cột, mỗi note là 1 thẻ bo tròn lớn, nền trắng */
+  .notes-grid, .notes-list { display: flex; flex-direction: column; gap: 0;
+    background: var(--surface); border-radius: 18px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+
+  /* --- thẻ dạng lưới (grid) rút gọn lại giống hàng danh sách --- */
+  .notes-grid > .card {
+    min-height: 0 !important; border: none !important; border-radius: 0 !important;
+    box-shadow: none !important; margin: 0 !important;
+    padding: 15px 18px !important;
+    border-bottom: 1px solid var(--border) !important;
+    display: block !important;
+  }
+  .notes-grid > .card:last-child { border-bottom: none !important; }
+  .notes-grid > .card .badge,
+  .notes-grid > .card .tiny.muted,
+  .notes-grid > .card .row:first-child { display: none !important; } /* bỏ badge + ngày trên cùng cho gọn */
+  .notes-grid > .card > div[style*="font-weight"] { font-size: 18px !important; font-weight: 700 !important;
+    margin-bottom: 3px !important; letter-spacing: -.01em; }
+  .notes-grid > .card .muted { font-size: 15px !important; color: var(--text-soft) !important;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* --- hàng danh sách (list) --- */
+  .notes-list { }
+  .notes-list .list-item { padding: 15px 18px; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .notes-list .list-item:last-child { border-bottom: none; }
+  .notes-list .cat-dot { display: none; }
+  .notes-list .list-title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  .notes-list .list-cat, .notes-list .tag-chip-sm { display: none; } /* bớt chi tiết rối */
+  .notes-list .list-row1 { gap: 8px; }
+  .notes-list .list-date { font-size: 13px; color: var(--text-mute); }
+  .notes-list .list-preview { font-size: 15px; color: var(--text-soft); margin-top: 3px;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* nút "Ghi chú mới" nổi tròn góc phải dưới (như Apple Notes) */
+  .page-head .btn { position: fixed; right: 18px; bottom: 22px; z-index: 30;
+    width: 56px; height: 56px; padding: 0; border-radius: 50%; font-size: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,.22); display: inline-flex; align-items: center; justify-content: center; }
+  .page-head .btn::after { content: "+"; font-size: 30px; font-weight: 400; line-height: 1; }
+
+  /* ---------- TRANG SOẠN THẢO: toolbar xuống ĐÁY ---------- */
+  .editor-card { margin: 0; border: none; border-radius: 0; box-shadow: none; }
+  .editor-bar { padding: 10px 14px; }
+  .editor-title { font-size: 18px; }
+
+  /* ẩn thước trên mobile cho gọn (giống Apple Notes) */
+  .ruler { display: none; }
+
+  /* toolbar cố định dưới đáy màn hình */
+  .rich-toolbar {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+    border-top: 1px solid var(--border); border-bottom: none;
+    background: var(--surface);
+    box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 40;
+  }
+  .tb-scroll { padding: 7px 10px; gap: 2px; }
+  .tb-btn { min-width: 34px; height: 34px; }
+  .tb-btn svg { width: 18px; height: 18px; }
+  .tb-sep { height: 22px; margin: 0 5px; }
+
+  /* chừa chỗ cho toolbar đáy, không che nội dung */
+  .rich-editor.tiptap { padding: 18px 16px 90px; }
+
+  /* menu dropdown của toolbar mở LÊN TRÊN (vì toolbar ở đáy) — portal fixed nên
+     đã tự định vị theo nút; chỉ cần đảm bảo nổi trên toolbar */
+  .tb-menu { z-index: 60; }
+}
