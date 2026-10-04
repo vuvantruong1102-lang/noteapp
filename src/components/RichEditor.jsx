@@ -11,6 +11,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import FontSize from "./editor/FontSize.js";
+import Indent from "./editor/Indent.js";
 import ChecklistInputRule from "./editor/ChecklistInputRule.js";
 import EditorToolbar from "./editor/EditorToolbar.jsx";
 
@@ -39,12 +40,29 @@ export default function RichEditor({ value, onChange, placeholder }) {
   const [linkUrl, setLinkUrl] = useState("");
   const linkInputRef = useRef(null);
 
+  // ===== Format painter (chổi quét định dạng) =====
+  const [painterOn, setPainterOn] = useState(false);
+  const painterFmt = useRef(null); // marks đã chép
+
+  // Tab / Shift+Tab: trong list thì nest/unnest; ngoài list thì thụt/lùi đoạn
+  const handleTab = useCallback((editor, shift) => {
+    if (editor.isActive("listItem") || editor.isActive("taskItem")) {
+      const cmd = shift ? "liftListItem" : "sinkListItem";
+      const itemType = editor.isActive("taskItem") ? "taskItem" : "listItem";
+      return editor.chain().focus()[cmd](itemType).run();
+    }
+    return shift
+      ? editor.chain().focus().outdentBlock().run()
+      : editor.chain().focus().indentBlock().run();
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
       TextStyle,
       FontSize,
+      Indent,
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -62,6 +80,14 @@ export default function RichEditor({ value, onChange, placeholder }) {
     content: normalizeInitial(value),
     editorProps: {
       attributes: { class: "rich-editor tiptap", spellcheck: "false" },
+      handleKeyDown: (view, event) => {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          handleTab(editorRef.current, event.shiftKey);
+          return true;
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor }) => {
       // TipTap không bắn onUpdate giữa composition -> an toàn với IME tiếng Trung
@@ -70,6 +96,63 @@ export default function RichEditor({ value, onChange, placeholder }) {
       onChangeRef.current?.(html);
     },
   });
+
+  // ref ổn định tới editor cho handleKeyDown (đóng kín trong editorProps)
+  const editorRef = useRef(null);
+  editorRef.current = editor;
+
+  // ===== Format painter: bắt mouseup sau khi bật, áp marks lên vùng vừa bôi đen =====
+  const togglePainter = useCallback(() => {
+    if (!editor) return;
+    if (painterOn) { painterFmt.current = null; setPainterOn(false); return; }
+    // chép định dạng tại vị trí con trỏ hiện tại
+    const ts = editor.getAttributes("textStyle");
+    painterFmt.current = {
+      bold: editor.isActive("bold"),
+      italic: editor.isActive("italic"),
+      underline: editor.isActive("underline"),
+      strike: editor.isActive("strike"),
+      code: editor.isActive("code"),
+      color: editor.getAttributes("textStyle").color || null,
+      highlight: editor.getAttributes("highlight").color || null,
+      fontSize: ts.fontSize || null,
+    };
+    setPainterOn(true);
+  }, [editor, painterOn]);
+
+  const applyPainter = useCallback(() => {
+    const f = painterFmt.current;
+    if (!editor || !f) return;
+    const { empty } = editor.state.selection;
+    if (empty) return; // cần một vùng bôi đen mới áp
+    let c = editor.chain().focus();
+    // xoá marks cũ trên vùng chọn trước, rồi áp lại theo mẫu đã chép
+    c = c.unsetAllMarks();
+    if (f.bold) c = c.setBold();
+    if (f.italic) c = c.setItalic();
+    if (f.underline) c = c.setUnderline();
+    if (f.strike) c = c.setStrike();
+    if (f.code) c = c.setCode();
+    if (f.color) c = c.setColor(f.color);
+    if (f.highlight) c = c.setHighlight({ color: f.highlight });
+    if (f.fontSize) c = c.setFontSize(f.fontSize);
+    c.run();
+    painterFmt.current = null;
+    setPainterOn(false);
+  }, [editor]);
+
+  useEffect(() => {
+    if (!painterOn || !editor) return;
+    const dom = editor.view.dom;
+    const onUp = () => {
+      // đợi selection cập nhật xong
+      setTimeout(() => {
+        if (!editor.state.selection.empty) applyPainter();
+      }, 0);
+    };
+    dom.addEventListener("mouseup", onUp);
+    return () => dom.removeEventListener("mouseup", onUp);
+  }, [painterOn, editor, applyPainter]);
 
   // value đổi từ ngoài (load note khác) -> set lại; bỏ qua nếu trùng (tránh reset con trỏ)
   useEffect(() => {
@@ -119,8 +202,9 @@ export default function RichEditor({ value, onChange, placeholder }) {
 
   return (
     <div className="rich-wrap">
-      <EditorToolbar editor={editor} onLink={openLink} />
-      <EditorContent editor={editor} />
+      <EditorToolbar editor={editor} onLink={openLink}
+        onPainterToggle={togglePainter} painterOn={painterOn} />
+      <EditorContent editor={editor} className={painterOn ? "painter-on" : undefined} />
 
       {linkOpen && (
         <div className="link-dialog-backdrop" onMouseDown={() => setLinkOpen(false)}>
