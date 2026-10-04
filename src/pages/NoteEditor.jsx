@@ -174,7 +174,9 @@ export default function NoteEditor() {
     <div className="editor-page">
       <div className="editor-bar">
         <button className="btn ghost sm" onClick={goBack}>← Quay lại</button>
-        <div className="row" style={{ gap: 14 }}>
+        <input className="editor-title" placeholder="Tiêu đề ghi chú…"
+          value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="row editor-bar-right" style={{ gap: 14 }}>
           <StatusLabel status={status} savedAt={savedAt} />
           {noteId && (
             <button className="btn ghost sm" onClick={remove} style={{ color: "#c2185b" }}>Xoá</button>
@@ -183,10 +185,7 @@ export default function NoteEditor() {
       </div>
 
       <div className="editor-card">
-        <input className="editor-title" placeholder="Tiêu đề"
-          value={title} onChange={(e) => setTitle(e.target.value)} />
-
-        {/* Thanh meta ngay dưới tiêu đề: Nhóm + Thẻ + Ghim */}
+        {/* Thanh meta: Nhóm + Thẻ + Ghim */}
         <div className="editor-metabar">
           <select value={category} onChange={(e) => setCategory(e.target.value)} title="Nhóm">
             {CATS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
