@@ -177,7 +177,6 @@ export default function NoteEditor() {
         <input className="editor-title" placeholder="Tiêu đề ghi chú…"
           value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="row editor-bar-right" style={{ gap: 14 }}>
-          <StatusLabel status={status} savedAt={savedAt} />
           {noteId && (
             <button className="btn ghost sm" onClick={remove} style={{ color: "#c2185b" }}>Xoá</button>
           )}
@@ -224,6 +223,8 @@ export default function NoteEditor() {
               </div>
             )}
           </div>
+
+          <span className="metabar-status"><StatusLabel status={status} savedAt={savedAt} /></span>
 
           <label className="metabar-pin">
             <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
