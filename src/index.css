@@ -571,6 +571,7 @@ a { color: var(--accent-700); text-decoration: none; }
   outline: none; cursor: pointer;
 }
 .metabar-tags { position: relative; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.metabar-status { display: inline-flex; align-items: center; margin-left: 4px; white-space: nowrap; }
 .metabar-pin { display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
   font-size: 13px; color: var(--text-soft); cursor: pointer; white-space: nowrap; }
 
